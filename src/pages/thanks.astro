@@ -19,33 +19,42 @@ const phone = site.phone;
   title="Заявку прийнято"
   description="Дякуємо за звернення, ми звʼяжемося найближчим часом."
   noindex={true}
+  phone={phone}
 >
-  <section class="ty">
+  <section class="band ty">
+    <div class="ty__mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M6 12.6l3.8 3.8L18.4 7.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </div>
+
     <h1>Заявку прийнято</h1>
     <p>Передзвоню протягом 15 хвилин у робочий час.</p>
     <p class="ty__hint">Якщо справа термінова — швидше зателефонувати:</p>
-    <a class="ty__cta" href={telHref(phone)} data-cta="thanks">{formatPhone(phone)}</a>
-    <a class="ty__back" href="/">На головну</a>
+    <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="thanks">
+      {formatPhone(phone)}
+    </a>
+    <a class="ty__back" href="/">← На головну</a>
   </section>
 </Base>
 
 <style>
-  .ty { padding: 4rem 1rem; display: grid; gap: 0.9rem; }
-  .ty h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.2rem); }
+  .ty { display: grid; gap: 0.9rem; justify-items: start; }
+  .ty h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.2rem); letter-spacing: -0.02em; }
   .ty p { margin: 0; font-size: 1rem; }
-  .ty__hint { color: var(--muted); font-size: 0.95rem !important; }
-  .ty__cta {
-    justify-self: start;
-    min-height: 56px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 1.25rem;
-    border-radius: 12px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 1.25rem;
-    font-weight: 700;
-    text-decoration: none;
+  .ty__hint { color: var(--muted); font-size: 0.95rem !important; margin-top: 0.35rem !important; }
+
+  .ty__mark {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
-  .ty__back { color: var(--accent); font-size: 0.95rem; justify-self: start; }
+  .ty__mark svg { width: 1.6rem; height: 1.6rem; }
+
+  .ty__back { color: var(--accent); font-size: 0.95rem; text-decoration: none; margin-top: 0.35rem; }
+  .ty__back:hover { text-decoration: underline; }
 </style>

@@ -1,0 +1,148 @@
+---
+import { formatPhone, telHref } from '../lib/format';
+
+/**
+ * Шапка сайту.
+ *
+ * Навігація стоїть тут, а не у футері: сторінок дві, і людина має
+ * бачити другу одразу, а не після прокрутки до самого низу.
+ *
+ * Телефон у шапці з'являється від 768px — рівно там, де ховається
+ * нижня липка панель. Так кнопка дзвінка є завжди, але жодного разу
+ * не дублюється: на телефоні внизу, на десктопі вгорі.
+ */
+interface Props {
+  phone?: string;
+}
+const { phone } = Astro.props;
+
+const NAV = [
+  { href: '/', label: 'Головна' },
+  { href: '/vyizdnyi-remont/', label: 'Виїзний ремонт' },
+];
+const here = Astro.url.pathname;
+---
+
+<header class="hdr">
+  <div class="hdr__inner">
+    <a class="hdr__brand" href="/" aria-label="На головну">
+      <svg class="hdr__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <rect width="64" height="64" rx="14" fill="var(--accent)"></rect>
+        <g stroke="#fff" stroke-width="3.6" stroke-linecap="round">
+          <path d="M32 32 L32 13"></path>
+          <path d="M32 32 L47 21"></path>
+          <path d="M32 32 L51 39"></path>
+          <path d="M32 32 L39 51"></path>
+          <path d="M32 32 L20 48"></path>
+          <path d="M32 32 L13 36"></path>
+          <path d="M32 32 L17 19"></path>
+        </g>
+        <circle cx="32" cy="32" r="5.4" fill="#fff"></circle>
+      </svg>
+      <span class="hdr__name">Ремонт скла</span>
+    </a>
+
+    <nav class="hdr__nav" aria-label="Розділи сайту">
+      {NAV.map((l) => (
+        <a href={l.href} aria-current={here === l.href ? 'page' : undefined}>
+          {l.label}
+        </a>
+      ))}
+    </nav>
+
+    {phone && (
+      <a class="btn btn--primary hdr__call" href={telHref(phone)} data-cta="header">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
+        </svg>
+        <span>{formatPhone(phone)}</span>
+      </a>
+    )}
+  </div>
+</header>
+
+<style>
+  .hdr {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding-inline: max(1rem, calc((100% - var(--container)) / 2));
+  }
+
+  .hdr__inner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 60px;
+  }
+
+  .hdr__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-right: auto;
+  }
+
+  .hdr__mark { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+
+  .hdr__name { font-size: 1rem; white-space: nowrap; }
+
+  /* На вузьких екранах лишається сама позначка: назва з'їдала б
+     місце, потрібне посиланням */
+  @media (max-width: 400px) {
+    .hdr__name { display: none; }
+  }
+
+  .hdr__nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .hdr__nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.6rem;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease-out, background-color 0.15s ease-out;
+  }
+  .hdr__nav a:hover { color: var(--text); background: var(--surface-alt); }
+
+  .hdr__nav a[aria-current='page'] {
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-soft);
+  }
+
+  /* Телефон у шапці — рівно там, де зникає нижня панель */
+  .hdr__call { display: none; }
+  .hdr__call svg { width: 18px; height: 18px; flex: none; }
+
+  @media (min-width: 768px) {
+    .hdr {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      padding-inline: max(1.5rem, calc((100% - var(--container)) / 2));
+    }
+    .hdr__inner { min-height: 68px; gap: 1rem; }
+    .hdr__name { font-size: 1.05rem; }
+    .hdr__nav { gap: 0.35rem; }
+    .hdr__nav a { font-size: 0.95rem; padding: 0 0.85rem; }
+    .hdr__call {
+      display: inline-flex;
+      min-height: 44px;
+      padding: 0 1rem;
+      font-size: 0.98rem;
+    }
+  }
+</style>

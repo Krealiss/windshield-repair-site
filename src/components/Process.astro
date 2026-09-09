@@ -26,7 +26,7 @@ const steps = [
 ];
 ---
 
-<section class="process">
+<section class="band process">
   <h2>Як це відбувається</h2>
 
   <ol class="process__steps">
@@ -68,49 +68,72 @@ const steps = [
 </section>
 
 <style>
-  .process { padding: 2rem 1rem; display: grid; gap: 1.25rem; }
-  .process h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
-  .process h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+  .process { display: grid; gap: 1.75rem; }
+  .process h3 { margin: 0 0 0.4rem; font-size: 1.02rem; letter-spacing: -0.01em; }
 
-  .process__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; counter-reset: s; }
-  .process__steps li { display: grid; grid-template-columns: 2rem 1fr; gap: 0.75rem; align-items: start; }
-  .process__steps div { display: grid; gap: 0.15rem; }
-  .process__steps span:not(.process__num) { font-size: 0.95rem; color: var(--muted); line-height: 1.5; }
+  .process__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+
+  .process__steps li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 0.85rem;
+    align-items: start;
+    padding-bottom: 1.35rem;
+  }
+  /* Лінія, що з'єднує кроки: показує, що це послідовність, а не набір */
+  .process__steps li::before {
+    content: '';
+    position: absolute;
+    left: calc(1.125rem - 1px);
+    top: 2.25rem;
+    bottom: 0.35rem;
+    width: 2px;
+    background: var(--border);
+  }
+  .process__steps li:last-child { padding-bottom: 0; }
+  .process__steps li:last-child::before { display: none; }
+
+  .process__steps div { display: grid; gap: 0.2rem; }
+  .process__steps strong { letter-spacing: -0.01em; }
+  .process__steps span:not(.process__num) { font-size: 0.94rem; color: var(--muted); line-height: 1.55; }
 
   .process__num {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
     background: var(--accent);
     color: #fff;
     font-weight: 700;
     font-size: 0.95rem;
+    box-shadow: 0 0 0 4px var(--surface);
   }
 
-  .process__where { display: grid; gap: 0.75rem; }
+  .process__where { display: grid; gap: 0.85rem; }
   .process__card {
-    padding: 1rem;
+    padding: 1.15rem;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--r);
     background: var(--surface-alt);
   }
-  .process__card p { margin: 0; font-size: 0.95rem; }
-  .process__areas { margin-top: 0.35rem !important; color: var(--muted); font-size: 0.9rem !important; }
-  .process__cond { margin-top: 0.5rem !important; color: var(--muted); font-size: 0.85rem !important; }
+  .process__card p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
+  .process__areas { margin-top: 0.4rem !important; color: var(--muted); font-size: 0.9rem !important; }
+  .process__cond { margin-top: 0.55rem !important; color: var(--muted); font-size: 0.86rem !important; }
 
-  .process__more { margin-top: 0.75rem !important; font-size: 0.9rem !important; }
+  .process__more { margin-top: 0.8rem !important; font-size: 0.92rem !important; }
   .process__more a {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
     color: var(--accent);
     font-weight: 600;
+    text-decoration: none;
   }
+  .process__more a:hover { text-decoration: underline; }
 
   @media (min-width: 768px) {
-    .process { padding: 3rem 2rem; }
-    .process__where { grid-template-columns: 1fr 1fr; }
+    .process__where { grid-template-columns: 1fr 1fr; gap: 1rem; }
   }
 </style>

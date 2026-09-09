@@ -24,73 +24,95 @@ const phone = contacts.phone_tracking || contacts.phone_main;
 const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat},${contacts.lng}`;
 ---
 
-<section class="cnt" id="contacts">
+<section class="band band--alt cnt" id="contacts">
   <h2>Контакти</h2>
 
-  <a class="cnt__phone" href={telHref(phone)} data-cta="contacts">{formatPhone(phone)}</a>
+  <div class="cnt__grid">
+    <div class="cnt__main">
+      <a class="cnt__phone" href={telHref(phone)} data-cta="contacts">{formatPhone(phone)}</a>
 
-  <div class="cnt__msg">
-    {contacts.viber && (
-      <a href={viberHref(contacts.viber)} data-cta="contacts">Viber</a>
-    )}
-    {contacts.telegram && (
-      <a href={telegramHref(contacts.telegram)} data-cta="contacts">Telegram</a>
+      <div class="cnt__msg">
+        {contacts.viber && (
+          <a class="btn btn--ghost" href={viberHref(contacts.viber)} data-cta="contacts">Viber</a>
+        )}
+        {contacts.telegram && (
+          <a class="btn btn--ghost" href={telegramHref(contacts.telegram)} data-cta="contacts">Telegram</a>
+        )}
+      </div>
+
+      <p class="cnt__addr">
+        <span>{contacts.address}</span>
+        <a href={mapsUrl} target="_blank" rel="noopener">Прокласти маршрут →</a>
+      </p>
+    </div>
+
+    {showHours && (
+      <div class="cnt__hoursbox">
+        <h3>Графік роботи</h3>
+        <table class="cnt__hours">
+          <tbody>
+            {contacts.hours.map((h) => (
+              <tr class={h.closed ? 'is-closed' : undefined}>
+                <th scope="row">{h.day}</th>
+                <td>{h.closed ? 'Вихідний' : `${h.from}–${h.to}`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     )}
   </div>
-
-  <p class="cnt__addr">
-    {contacts.address}
-    <a href={mapsUrl} target="_blank" rel="noopener">Прокласти маршрут</a>
-  </p>
-
-  {showHours && (
-    <table class="cnt__hours">
-      <tbody>
-        {contacts.hours.map((h) => (
-          <tr>
-            <th scope="row">{h.day}</th>
-            <td>{h.closed ? 'Вихідний' : `${h.from}–${h.to}`}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )}
 </section>
 
 <style>
-  .cnt { padding: 2rem 1rem 3rem; display: grid; gap: 0.85rem; }
-  .cnt h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .cnt { display: grid; gap: 1.35rem; }
+  .cnt h3 { margin: 0 0 0.6rem; font-size: 0.95rem; letter-spacing: -0.01em; }
+
+  .cnt__grid { display: grid; gap: 1.35rem; align-items: start; }
+
+  .cnt__main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.85rem; justify-items: start; }
 
   .cnt__phone {
-    justify-self: start;
-    font-size: 1.5rem;
+    font-size: clamp(1.5rem, 6vw, 1.9rem);
     font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--accent);
     text-decoration: none;
     min-height: 48px;
     display: inline-flex;
     align-items: center;
   }
+  .cnt__phone:hover { color: var(--accent-strong); }
 
-  .cnt__msg { display: flex; gap: 0.5rem; }
-  .cnt__msg a {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 0.9rem;
+  .cnt__msg { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .cnt__msg .btn { min-height: 44px; padding: 0 1rem; font-size: 0.92rem; }
+
+  .cnt__addr { margin: 0; display: grid; gap: 0.3rem; font-size: 0.95rem; }
+  .cnt__addr a { color: var(--accent); justify-self: start; text-decoration: none; font-weight: 500; }
+  .cnt__addr a:hover { text-decoration: underline; }
+
+  .cnt__hoursbox {
+    padding: 1.15rem;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    font-size: 0.9rem;
-    text-decoration: none;
+    border-radius: var(--r);
+    background: var(--surface);
+    min-width: min(100%, 17rem);
   }
+  .cnt__hours { border-collapse: collapse; font-size: 0.9rem; width: 100%; }
+  .cnt__hours th {
+    text-align: left;
+    font-weight: 500;
+    padding: 0.3rem 1.5rem 0.3rem 0;
+    white-space: nowrap;
+  }
+  .cnt__hours td { color: var(--muted); text-align: right; white-space: nowrap; }
+  .cnt__hours tr:not(:last-child) th,
+  .cnt__hours tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+  /* Вихідний приглушуємо не яскравістю, а вагою: світліший сірий
+     давав контраст 2.56:1 при нормі 4.5:1 і валив аудит доступності */
+  .cnt__hours .is-closed th { color: var(--muted); font-weight: 400; }
 
-  .cnt__addr { margin: 0; display: grid; gap: 0.25rem; font-size: 0.95rem; }
-  .cnt__addr a { color: var(--accent); justify-self: start; }
-
-  .cnt__hours { border-collapse: collapse; font-size: 0.9rem; }
-  .cnt__hours th { text-align: left; font-weight: 500; padding: 0.2rem 1.5rem 0.2rem 0; }
-  .cnt__hours td { color: var(--muted); }
-
-  @media (min-width: 768px) { .cnt { padding: 3rem 2rem 4rem; } }
+  @media (min-width: 768px) {
+    .cnt__grid { grid-template-columns: 1fr auto; gap: 2.5rem; }
+  }
 </style>

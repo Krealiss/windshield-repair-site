@@ -25,7 +25,7 @@ const { pairs } = Astro.props;
   Компонент рендериться тільки якщо пар щонайменше чотири — це
   вирішується в site.ts, сюди приходять уже перевірені дані.
 -->
-<section class="gal">
+<section class="band band--alt gal">
   <h2>Результати робіт</h2>
 
   <ul class="gal__list">
@@ -48,10 +48,16 @@ const { pairs } = Astro.props;
 </section>
 
 <style>
-  .gal { padding: 2rem 1rem; display: grid; gap: 1rem; }
-  .gal h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .gal { display: grid; gap: 1.15rem; }
 
   .gal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem; }
+
+  .gal__item {
+    padding: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--surface);
+  }
 
   .gal__pair {
     margin: 0;
@@ -61,28 +67,34 @@ const { pairs } = Astro.props;
   }
 
   .gal__side { position: relative; }
-  .gal__side img { border-radius: 10px; aspect-ratio: 3 / 4; object-fit: cover; }
+  .gal__side img {
+    border-radius: var(--r-sm);
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    width: 100%;
+  }
 
   .gal__label {
     position: absolute;
     left: 0.5rem;
     top: 0.5rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 6px;
-    background: rgba(17, 24, 39, 0.75);
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--r-pill);
+    background: rgba(15, 23, 42, 0.78);
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
   }
 
   .gal__pair figcaption {
     grid-column: 1 / -1;
-    font-size: 0.9rem;
+    padding: 0.45rem 0.35rem 0.15rem;
+    font-size: 0.88rem;
     color: var(--muted);
   }
 
-  @media (min-width: 768px) {
-    .gal { padding: 3rem 2rem; }
-    .gal__list { grid-template-columns: 1fr 1fr; gap: 1.75rem; }
+  @media (min-width: 620px) {
+    .gal__list { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
   }
 </style>

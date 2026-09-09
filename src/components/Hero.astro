@@ -17,24 +17,47 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
 
   Правило: жодного зовнішнього запиту. Ні шрифтів із CDN, ні іконок,
   ні фонового зображення. Усе, що потрібно для LCP, приходить
-  першим HTML-пакетом.
+  першим HTML-пакетом. Підкладка — градієнт на CSS, він нічого не важить.
 
-  Кнопка дзвінка тут — не «дізнатися більше» і не «залишити заявку».
-  Ціль сайту — дзвінки, тож головна дія одна.
+  Дві дії, і вони нерівнозначні навмисно: дзвінок великий і кольоровий,
+  форма — стримана. Ціль сайту одна, друга кнопка лише для тих,
+  кому незручно говорити.
 -->
-<section class="hero">
+<section class="band hero">
   <h1 class="hero__title">{h1}</h1>
 
   {subtitle && <p class="hero__sub">{subtitle}</p>}
 
-  <a class="hero__cta" href={telHref(phone)} data-cta="hero">
-    {formatPhone(phone)}
-  </a>
+  <div class="hero__cta">
+    <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="hero">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
+      </svg>
+      <span>{formatPhone(phone)}</span>
+    </a>
 
-  <p class="hero__meta">
-    <span>{address}</span>
-    {guarantee && <><span aria-hidden="true"> · </span><span>{guarantee}</span></>}
-  </p>
+    <a class="btn btn--ghost" href="#lead" data-cta="hero_form">Надіслати фото сколу</a>
+  </div>
+
+  <ul class="hero__trust">
+    <li>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+        <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
+      </svg>
+      <span>{address}</span>
+    </li>
+
+    {guarantee && (
+      <li>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+          <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+        <span>{guarantee}</span>
+      </li>
+    )}
+  </ul>
 
   <!-- Сентинел для sticky-панелі: поки він у полі зору, панель прихована -->
   <div id="sticky-sentinel" aria-hidden="true"></div>
@@ -42,52 +65,59 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
 
 <style>
   .hero {
-    padding: 2rem 1rem 1.5rem;
-    /* Мінімальна висота, а не 100vh: на мобільному 100vh рахує
-       висоту без адресного рядка і контент стрибає при скролі */
     display: grid;
-    gap: 0.9rem;
+    gap: 1.15rem;
+    /* Знизу відступ менший: градієнт і так згасає в білий,
+       а порожнеча між першим екраном і цінами з'їдає прокрутку */
+    padding-bottom: calc(var(--section-y) * 0.6);
+    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
   }
 
   .hero__title {
     margin: 0;
-    font-size: clamp(1.6rem, 6vw, 2.4rem);
-    line-height: 1.15;
+    font-size: clamp(1.85rem, 7vw, 3rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
     text-wrap: balance;
+    max-width: 18ch;
   }
 
   .hero__sub {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: clamp(1.02rem, 3.4vw, 1.25rem);
     line-height: 1.5;
-    color: var(--muted, #4b5563);
-    max-width: 34ch;
+    color: var(--muted);
+    max-width: 38ch;
   }
 
   .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.35rem;
+  }
+  .hero__cta .btn svg { width: 20px; height: 20px; flex: none; }
+
+  .hero__trust {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+  .hero__trust li {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 56px;
-    padding: 0 1.25rem;
-    border-radius: 12px;
-    background: var(--accent, #1d4ed8);
-    color: #fff;
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    text-decoration: none;
-    justify-self: start;
-  }
-
-  .hero__meta {
-    margin: 0;
+    gap: 0.4rem;
     font-size: 0.9rem;
-    color: var(--muted, #6b7280);
+    color: var(--muted);
   }
+  .hero__trust svg { width: 17px; height: 17px; flex: none; color: var(--accent); }
 
   @media (min-width: 768px) {
-    .hero { padding: 3.5rem 2rem 2.5rem; }
-    .hero__sub { max-width: 46ch; font-size: 1.15rem; }
+    .hero { gap: 1.35rem; }
+    .hero__title { max-width: 16ch; }
+    .hero__sub { max-width: 46ch; }
   }
 </style>

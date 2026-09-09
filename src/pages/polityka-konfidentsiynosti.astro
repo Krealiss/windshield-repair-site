@@ -23,8 +23,9 @@ const UPDATED = '9 вересня 2026 року';
 <Base
   title="Політика конфіденційності"
   description="Які дані збирає сайт, навіщо, кому передає і як їх видалити."
+  phone={site.phone}
 >
-  <section class="pp">
+  <section class="band pp">
     <h1>Політика конфіденційності</h1>
     <p class="pp__meta">Оновлено: {UPDATED}</p>
 
@@ -122,14 +123,20 @@ const UPDATED = '9 вересня 2026 року';
 </Base>
 
 <style>
-  .pp {
-    padding: 2rem 1rem 3rem;
-    /* Вужче за решту сайту: суцільний текст на 900px нечитабельний */
-    max-width: 68ch;
+  /* Вужче за решту сайту: суцільний текст на 900px нечитабельний */
+  .pp > * { max-width: 68ch; }
+
+  .pp h1 {
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+    letter-spacing: -0.02em;
   }
-  .pp h1 { margin: 0 0 0.35rem; font-size: clamp(1.5rem, 6vw, 2rem); }
-  .pp h2 { margin: 2rem 0 0.5rem; font-size: 1.1rem; }
-  .pp p { margin: 0 0 0.85rem; font-size: 0.95rem; line-height: 1.65; }
+  .pp h2 {
+    margin: 2.25rem 0 0.6rem;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+  }
+  .pp p { margin: 0 0 0.85rem; font-size: 0.95rem; line-height: 1.7; }
   .pp ul { margin: 0 0 0.85rem; padding-left: 1.2rem; display: grid; gap: 0.4rem; }
   .pp li { font-size: 0.95rem; line-height: 1.6; }
   .pp__meta { color: var(--muted); font-size: 0.85rem !important; }

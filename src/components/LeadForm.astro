@@ -16,8 +16,8 @@ interface Props {
 const { placement = 'form' } = Astro.props;
 ---
 
-<div class="lead" id="lead">
-  <p class="lead__title">Не впевнені, чи ремонтується ваш скол?</p>
+<section class="band band--tint lead" id="lead">
+  <h2 class="lead__title">Не впевнені, чи ремонтується ваш скол?</h2>
   <p class="lead__sub">Надішліть фото — відповім із ціною протягом 15 хвилин.</p>
 
   <!--
@@ -75,10 +75,12 @@ const { placement = 'form' } = Astro.props;
       <a href="/polityka-konfidentsiynosti/">Що ми робимо з вашим номером</a>
     </p>
 
-    <button id="lead-submit" type="submit" data-cta={placement}>Надіслати</button>
+    <button class="btn btn--primary" id="lead-submit" type="submit" data-cta={placement}>
+      Надіслати
+    </button>
     <p class="lead__status" id="lead-status" role="status" aria-live="polite"></p>
   </form>
-</div>
+</section>
 
 <style>
   .lead__trap {
@@ -88,32 +90,73 @@ const { placement = 'form' } = Astro.props;
     height: 1px;
     overflow: hidden;
   }
-  .lead__fields { display: grid; gap: 0.5rem; }
+  /*
+    minmax(0, 1fr), а не типове auto: у input[type=file] велика власна
+    мінімальна ширина, і колонка розтягувалася під нього, виносячи
+    всю секцію за екран на вузьких телефонах.
+  */
+  .lead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+    justify-items: start;
+  }
+
+  .lead__title {
+    margin: 0;
+    font-size: clamp(1.4rem, 4.5vw, 1.85rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    max-width: 24ch;
+  }
+  .lead__sub { margin: 0 0 0.9rem; color: var(--muted); max-width: 44ch; }
+
+  /* Форма — біла картка на кольоровій смузі: око саме знаходить,
+     де тут потрібно щось зробити */
+  .lead__fields {
+    display: grid;
+    gap: 0.55rem;
+    width: 100%;
+    max-width: 30rem;
+    padding: 1.25rem;
+    border: 1px solid #dbe6fb;
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
   .lead__label { font-size: 0.9rem; font-weight: 600; }
-  .lead__hint { font-size: 0.8rem; color: var(--muted, #6b7280); margin: 0; }
-  .lead__consent { display: flex; gap: 0.5rem; font-size: 0.85rem; align-items: flex-start; }
-  .lead__consent label { font-size: 0.85rem; }
-  .lead__policy { margin: 0; font-size: 0.85rem; }
-  .lead__policy a { color: var(--accent, #1d4ed8); }
+  .lead__hint { font-size: 0.8rem; color: var(--muted); margin: 0; }
+  .lead__consent { display: flex; gap: 0.55rem; align-items: flex-start; margin-top: 0.35rem; }
+  .lead__consent input { margin: 0.2rem 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+  .lead__consent label { font-size: 0.85rem; line-height: 1.45; }
+  .lead__policy { margin: 0 0 0.35rem; font-size: 0.85rem; }
+  .lead__policy a { color: var(--accent); }
+
   input[type='tel'], input[type='file'] {
     min-height: 48px;
-    padding: 0 0.75rem;
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 10px;
+    padding: 0 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
     font-size: 16px; /* менше 16px — iOS зумить сторінку при фокусі */
+    font-family: inherit;
+    color: inherit;
   }
-  input[type='tel'][aria-invalid='true'] { border-color: #b91c1c; }
-  #lead-submit {
-    min-height: 48px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--accent, #1d4ed8);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1rem;
+  input[type='file'] {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    width: 100%;
+    min-width: 0;
   }
+  input[type='tel']:focus-visible, input[type='file']:focus-visible { outline-offset: 1px; }
+  input[type='tel'][aria-invalid='true'] { border-color: #b91c1c; background: #fef2f2; }
+
+  #lead-submit { width: 100%; }
   #lead-submit[disabled] { opacity: 0.6; }
-  .lead__status { font-size: 0.9rem; min-height: 1.2em; margin: 0; }
+
+  .lead__status { font-size: 0.9rem; line-height: 1.45; min-height: 1.2em; margin: 0; color: var(--text); }
 </style>
 
 <script>

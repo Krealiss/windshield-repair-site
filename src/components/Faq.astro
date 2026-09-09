@@ -13,7 +13,7 @@ const { items } = Astro.props;
   згорнутому стані. Самописна версія втратила б усі чотири пункти
   заради анімації, якої ніхто не помітить.
 -->
-<section class="faq">
+<section class="band band--alt faq">
   <h2>Питання і відповіді</h2>
 
   <div class="faq__list">
@@ -27,42 +27,54 @@ const { items } = Astro.props;
 </section>
 
 <style>
-  .faq { padding: 2rem 1rem; display: grid; gap: 0.75rem; }
-  .faq h2 { margin: 0 0 0.25rem; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .faq { display: grid; gap: 1.15rem; }
 
-  .faq__list { display: grid; }
+  .faq__list { display: grid; gap: 0.6rem; max-width: 48rem; }
 
-  .faq__item { border-bottom: 1px solid var(--border); }
+  .faq__item {
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--surface);
+    transition: border-color 0.15s ease-out;
+  }
+  .faq__item:hover { border-color: #cbd8e8; }
+  .faq__item[open] { border-color: #cbd8e8; }
 
   .faq__item summary {
     /* 48px висоти для пальця */
     min-height: 48px;
     display: flex;
     align-items: center;
-    padding: 0.75rem 2rem 0.75rem 0;
+    padding: 0.85rem 3rem 0.85rem 1.15rem;
     font-weight: 600;
+    letter-spacing: -0.01em;
     cursor: pointer;
     position: relative;
     list-style: none;
   }
   .faq__item summary::-webkit-details-marker { display: none; }
 
+  /* Плюс, зібраний із двох рисок: у [open] зникає вертикальна
+     і знак стає мінусом, без підміни символу і стрибка ширини */
+  .faq__item summary::before,
   .faq__item summary::after {
-    content: '+';
+    content: '';
     position: absolute;
-    right: 0.25rem;
-    font-size: 1.4rem;
-    font-weight: 400;
-    color: var(--muted);
+    right: 1.3rem;
+    width: 13px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: transform 0.18s ease-out, opacity 0.18s ease-out;
   }
-  .faq__item[open] summary::after { content: '−'; }
+  .faq__item summary::after { transform: rotate(90deg); }
+  .faq__item[open] summary::after { transform: rotate(0deg); opacity: 0; }
 
   .faq__item p {
-    margin: 0 0 1rem;
+    margin: 0;
+    padding: 0 1.15rem 1.1rem;
     font-size: 0.95rem;
-    line-height: 1.6;
+    line-height: 1.65;
     color: var(--muted);
   }
-
-  @media (min-width: 768px) { .faq { padding: 3rem 2rem; } }
 </style>

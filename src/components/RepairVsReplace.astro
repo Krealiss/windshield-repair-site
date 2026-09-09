@@ -43,14 +43,20 @@ const limits = [
 ];
 ---
 
-<section class="rvr">
+<section class="band band--alt rvr">
   <h2>Ремонт замість заміни</h2>
 
   <ul class="rvr__adv">
     {advantages.map((a) => (
       <li>
-        <strong>{a.title}</strong>
-        <span>{a.text}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="10" fill="var(--accent-soft)"></circle>
+          <path d="M7.8 12.3l2.7 2.7 5.7-5.9" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <div>
+          <strong>{a.title}</strong>
+          <span>{a.text}</span>
+        </div>
       </li>
     ))}
   </ul>
@@ -74,35 +80,53 @@ const limits = [
 </section>
 
 <style>
-  .rvr { padding: 2rem 1rem; display: grid; gap: 1.25rem; }
-  .rvr h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
-  .rvr h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+  .rvr { display: grid; gap: 1.5rem; }
+  .rvr h3 { margin: 0 0 0.6rem; font-size: 1.05rem; letter-spacing: -0.01em; }
 
-  .rvr__adv { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.85rem; }
-  .rvr__adv li { display: grid; gap: 0.15rem; }
-  .rvr__adv strong { font-size: 1rem; }
-  .rvr__adv span { font-size: 0.95rem; line-height: 1.5; color: var(--muted, #4b5563); }
+  .rvr__adv { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+  .rvr__adv li { display: grid; grid-template-columns: 24px 1fr; gap: 0.7rem; align-items: start; }
+  .rvr__adv svg { width: 24px; height: 24px; margin-top: 0.1rem; }
+  .rvr__adv div { display: grid; gap: 0.2rem; }
+  .rvr__adv strong { font-size: 1rem; letter-spacing: -0.01em; }
+  .rvr__adv span { font-size: 0.94rem; line-height: 1.55; color: var(--muted); }
 
   .rvr__limits {
-    padding: 1rem;
-    border-radius: 12px;
-    background: var(--surface-alt, #f9fafb);
-    border: 1px solid var(--border, #e5e7eb);
+    padding: 1.15rem;
+    border-radius: var(--r);
+    background: var(--surface);
+    border: 1px solid var(--border);
   }
-  .rvr__limits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
-  .rvr__limits li { font-size: 0.95rem; line-height: 1.45; }
-  .rvr__note { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--muted, #4b5563); }
+  .rvr__limits ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+  .rvr__limits li {
+    position: relative;
+    padding-left: 1.4rem;
+    font-size: 0.94rem;
+    line-height: 1.5;
+  }
+  /* Риска замість маркера: список обмежень, а не переваг */
+  .rvr__limits li::before {
+    content: '';
+    position: absolute;
+    left: 0.15rem;
+    top: 0.68em;
+    width: 0.7rem;
+    height: 2px;
+    border-radius: 2px;
+    background: #cbd5e1;
+  }
+  .rvr__note { margin: 0.9rem 0 0; font-size: 0.9rem; line-height: 1.55; color: var(--muted); }
 
   .rvr__expect {
     margin: 0;
-    padding: 0.9rem 1rem;
-    border-left: 3px solid var(--accent, #1d4ed8);
+    padding: 1rem 1.15rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    background: var(--surface);
     font-size: 0.95rem;
-    line-height: 1.55;
+    line-height: 1.6;
   }
 
   @media (min-width: 768px) {
-    .rvr { padding: 3rem 2rem; }
-    .rvr__adv { grid-template-columns: 1fr 1fr; gap: 1.25rem 2rem; }
+    .rvr__adv { grid-template-columns: 1fr 1fr; gap: 1.4rem 2.25rem; }
   }
 </style>
