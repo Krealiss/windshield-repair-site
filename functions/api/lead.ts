@@ -34,16 +34,9 @@ const fail = (status: number) => new Response(JSON.stringify({ ok: false }), {
 });
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  // ── 1. Обмеження частоти ────────────────────────────────
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-  if (env.RATE) {
-    const key = `lead:${ip}`;
-    const count = Number((await env.RATE.get(key)) ?? 0);
-    if (count >= RATE_LIMIT) return fail(429);
-    await env.RATE.put(key, String(count + 1), { expirationTtl: RATE_WINDOW });
-  }
 
-  // ── 2. Розбір ───────────────────────────────────────────
+  // ── 1. Розбір ───────────────────────────────────────────
   let form: FormData;
   try {
     form = await request.formData();
@@ -56,18 +49,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const elapsed = Number(form.get('elapsed') ?? 0);
   const page = String(form.get('page') ?? '/');
 
-  // ── 3. Антиспам ─────────────────────────────────────────
+  // ── 2. Антиспам ─────────────────────────────────────────
   // Обидві перевірки тихі: бот отримує 200 і вважає, що спрацював.
   // Гучна помилка тільки навчила б його обходити фільтр.
   if (honeypot) return ok();
   if (elapsed > 0 && elapsed < MIN_ELAPSED_MS) return ok();
 
-  // ── 4. Валідація ────────────────────────────────────────
+  // ── 3. Валідація ────────────────────────────────────────
   if (!/^\+380\d{9}$/.test(phone)) return fail(400);
 
   const photo = form.get('photo');
   const hasPhoto = photo instanceof File && photo.size > 0;
   if (hasPhoto && photo.size > MAX_PHOTO_BYTES) return fail(413);
+
+  // ── 4. Обмеження частоти ────────────────────────────────
+  //
+  // Лічильник рахує тільки те, що доходить сюди — заявки, які справді
+  // підуть у Telegram. Раніше він стояв першим і збільшувався на
+  // будь-якому POST, зокрема на порожньому чи мусорному. Наслідок був
+  // неочевидний і бив по живих людях: в українських мобільних мережах
+  // сотні абонентів сидять за одним IP, і бот міг вичерпати їхню спільну
+  // квоту, жодного разу не надіславши валідної заявки.
+  //
+  // get + put не атомарні: два одночасні запити можуть прочитати те саме
+  // число. Найгірше, що з цього виходить — кілька зайвих заявок понад
+  // ліміт. Ціна атомарності тут (Durable Object) вища за проблему.
+  if (env.RATE) {
+    const key = `lead:${ip}`;
+    const count = Number((await env.RATE.get(key)) ?? 0);
+    if (count >= RATE_LIMIT) return fail(429);
+    await env.RATE.put(key, String(count + 1), { expirationTtl: RATE_WINDOW });
+  }
 
   // ── 5. Відправка в Telegram ─────────────────────────────
   const time = new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' });
