@@ -54,6 +54,15 @@ const steps = [
         <p class="process__areas">{coverage.areas.join(' · ')}</p>
       )}
       {coverage.conditions && <p class="process__cond">{coverage.conditions}</p>}
+
+      <!--
+        Змістове посилання на другу сторінку, а не лише у футері.
+        Анкор із ключовою фразою: пошуковик бачить, про що сторінка,
+        а людина потрапляє туди з місця, де саме про це й подумала.
+      -->
+      <p class="process__more">
+        <a href="/vyizdnyi-remont/">Умови виїзного ремонту лобового скла →</a>
+      </p>
     </div>
   </div>
 </section>
@@ -90,6 +99,15 @@ const steps = [
   .process__card p { margin: 0; font-size: 0.95rem; }
   .process__areas { margin-top: 0.35rem !important; color: var(--muted); font-size: 0.9rem !important; }
   .process__cond { margin-top: 0.5rem !important; color: var(--muted); font-size: 0.85rem !important; }
+
+  .process__more { margin-top: 0.75rem !important; font-size: 0.9rem !important; }
+  .process__more a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent);
+    font-weight: 600;
+  }
 
   @media (min-width: 768px) {
     .process { padding: 3rem 2rem; }

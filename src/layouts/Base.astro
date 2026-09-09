@@ -5,6 +5,18 @@ interface Props {
   noindex?: boolean;
 }
 const { title, description, noindex = false } = Astro.props;
+
+// Канонічна адреса і og:url рахуються тут, а не в кожній сторінці.
+// Раніше canonical жив у SchemaOrg і сторінки /thanks/ та /404 лишалися без нього.
+const canonical = new URL(Astro.url.pathname, Astro.site).toString();
+const ogImage = new URL('/og-default.jpg', Astro.site).toString();
+
+const NAV = [
+  { href: '/', label: 'Головна' },
+  { href: '/vyizdnyi-remont/', label: 'Виїзний ремонт' },
+  { href: '/polityka-konfidentsiynosti/', label: 'Політика конфіденційності' },
+];
+const here = Astro.url.pathname;
 ---
 
 <!doctype html>
@@ -15,11 +27,27 @@ const { title, description, noindex = false } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
+    {!noindex && <link rel="canonical" href={canonical} />}
 
+    <!-- Іконки. SVG для сучасних браузерів, PNG — для iOS,
+         який svg на домашній екран не бере. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!--
+      Посилання на сайт кидають у Viber і Telegram — там прев'ю з картинкою
+      вирішує, чи його взагалі відкриють. Розміри вказані явно: без них
+      месенджер малює порожню рамку, поки не дотягне сам файл.
+    -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:locale" content="uk_UA" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Шрифт системний: нуль запитів, нуль FOUT, миттєвий рендер.
          Кастомний шрифт тут не додав би ані конверсії, ані довіри. -->
@@ -30,6 +58,22 @@ const { title, description, noindex = false } = Astro.props;
     <main>
       <slot />
     </main>
+
+    <!--
+      Футер існує заради двох речей, а не заради краси:
+      наскрізне посилання на другу сторінку (без нього /vyizdnyi-remont/
+      лишається сиротою — на неї не веде жодне внутрішнє посилання)
+      і доступ до політики конфіденційності з будь-якої сторінки.
+    -->
+    <footer class="foot">
+      <nav class="foot__nav" aria-label="Розділи сайту">
+        {NAV.map((l) => (
+          <a href={l.href} aria-current={here === l.href ? 'page' : undefined}>
+            {l.label}
+          </a>
+        ))}
+      </nav>
+    </footer>
 
     <style is:global>
       :root {
@@ -66,6 +110,38 @@ const { title, description, noindex = false } = Astro.props;
       :focus-visible {
         outline: 3px solid var(--accent);
         outline-offset: 2px;
+      }
+
+      .foot {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 1.25rem 1rem 2rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .foot__nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 1.25rem;
+      }
+
+      .foot__nav a {
+        /* 44px — щоб посилання лишалося ціллю для пальця, а не лише для миші */
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .foot__nav a[aria-current='page'] {
+        color: var(--text);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      @media (min-width: 768px) {
+        .foot { padding: 1.5rem 2rem 2.5rem; }
       }
     </style>
   </body>

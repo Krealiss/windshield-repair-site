@@ -235,6 +235,11 @@ const PLACEHOLDERS = [
     find: 'Хрещатик 12',
     what: 'демонстраційна адреса — потрапить у schema.org і в посилання на карти',
   },
+  {
+    file: 'src/pages/polityka-konfidentsiynosti.astro',
+    find: 'ПРІЗВИЩЕ ІМЯ',
+    what: 'не вказано володільця даних — без назви ФОП чи ТОВ політика юридично порожня',
+  },
 ];
 
 for (const p of PLACEHOLDERS) {

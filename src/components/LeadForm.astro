@@ -20,11 +20,30 @@ const { placement = 'form' } = Astro.props;
   <p class="lead__title">Не впевнені, чи ремонтується ваш скол?</p>
   <p class="lead__sub">Надішліть фото — відповім із ціною протягом 15 хвилин.</p>
 
-  <!-- Не <form>: сабміт робимо fetch'ем, щоб керувати станом і не втрачати людину на перезавантаженні -->
-  <div class="lead__fields">
+  <!--
+    Справжній <form>, а не набір полів у <div>.
+
+    Річ не в семантиці: без нього Enter у полі телефона (кнопка «Готово»
+    на мобільній клавіатурі) не робив нічого, і частина людей вважала
+    форму зламаною.
+
+    method і action заповнені на випадок, коли скрипт не приїхав:
+    тоді браузер надсилає форму сам. Без method="post" він зробив би
+    GET і виставив чужий номер телефона в адресний рядок.
+    Коли скрипт працює — він перехоплює submit і форма не перезавантажується.
+  -->
+  <form
+    class="lead__fields"
+    id="lead-form"
+    method="post"
+    action="/api/lead"
+    enctype="multipart/form-data"
+    novalidate
+  >
     <label class="lead__label" for="lead-phone">Ваш телефон</label>
     <input
       id="lead-phone"
+      name="phone"
       type="tel"
       inputmode="tel"
       autocomplete="tel"
@@ -33,23 +52,32 @@ const { placement = 'form' } = Astro.props;
     />
 
     <label class="lead__label" for="lead-photo">Фото сколу (необовʼязково)</label>
-    <input id="lead-photo" type="file" accept="image/*" capture="environment" />
+    <input id="lead-photo" name="photo" type="file" accept="image/*" capture="environment" />
     <p class="lead__hint" id="lead-photo-info" hidden></p>
 
     <!-- Honeypot: реальна людина цього поля не бачить, бот заповнює -->
     <div class="lead__trap" aria-hidden="true">
       <label for="lead-company">Компанія</label>
-      <input id="lead-company" type="text" tabindex="-1" autocomplete="off" />
+      <input id="lead-company" name="company" type="text" tabindex="-1" autocomplete="off" />
     </div>
 
-    <label class="lead__consent">
-      <input id="lead-consent" type="checkbox" required />
-      <span>Погоджуюсь на обробку персональних даних</span>
-    </label>
+    <!--
+      Прапорець і підпис — сусіди, а не вкладені один в одного.
+      Посилання всередині <label> відкривало б політику і водночас
+      перемикало згоду: людина натискає «почитати» і не помічає,
+      що зняла галочку.
+    -->
+    <div class="lead__consent">
+      <input id="lead-consent" name="consent" type="checkbox" required />
+      <label for="lead-consent">Погоджуюсь на обробку персональних даних</label>
+    </div>
+    <p class="lead__policy">
+      <a href="/polityka-konfidentsiynosti/">Що ми робимо з вашим номером</a>
+    </p>
 
-    <button id="lead-submit" type="button" data-cta={placement}>Надіслати</button>
+    <button id="lead-submit" type="submit" data-cta={placement}>Надіслати</button>
     <p class="lead__status" id="lead-status" role="status" aria-live="polite"></p>
-  </div>
+  </form>
 </div>
 
 <style>
@@ -64,6 +92,9 @@ const { placement = 'form' } = Astro.props;
   .lead__label { font-size: 0.9rem; font-weight: 600; }
   .lead__hint { font-size: 0.8rem; color: var(--muted, #6b7280); margin: 0; }
   .lead__consent { display: flex; gap: 0.5rem; font-size: 0.85rem; align-items: flex-start; }
+  .lead__consent label { font-size: 0.85rem; }
+  .lead__policy { margin: 0; font-size: 0.85rem; }
+  .lead__policy a { color: var(--accent, #1d4ed8); }
   input[type='tel'], input[type='file'] {
     min-height: 48px;
     padding: 0 0.75rem;
@@ -71,6 +102,7 @@ const { placement = 'form' } = Astro.props;
     border-radius: 10px;
     font-size: 16px; /* менше 16px — iOS зумить сторінку при фокусі */
   }
+  input[type='tel'][aria-invalid='true'] { border-color: #b91c1c; }
   #lead-submit {
     min-height: 48px;
     border: 0;
@@ -86,9 +118,9 @@ const { placement = 'form' } = Astro.props;
 
 <script>
   const $ = (id: string) => document.getElementById(id);
+  const form = $('lead-form') as HTMLFormElement | null;
   const phone = $('lead-phone') as HTMLInputElement | null;
   const photo = $('lead-photo') as HTMLInputElement | null;
-  const trap = $('lead-company') as HTMLInputElement | null;
   const consent = $('lead-consent') as HTMLInputElement | null;
   const btn = $('lead-submit') as HTMLButtonElement | null;
   const status = $('lead-status');
@@ -126,23 +158,31 @@ const { placement = 'form' } = Astro.props;
     info.textContent = `Обрано: ${f.name}`;
   });
 
-  function fail(msg: string) {
+  /** Повідомлення + фокус на проблемному полі: інакше на довгій сторінці
+      людина бачить текст помилки, але не бачить, куди він показує */
+  function fail(msg: string, focus?: HTMLElement | null) {
     if (status) status.textContent = msg;
     if (btn) { btn.disabled = false; btn.textContent = 'Надіслати'; }
+    focus?.focus();
   }
 
-  btn?.addEventListener('click', async () => {
-    const value = (phone?.value ?? '').replace(/[^\d+]/g, '');
-    if (!/^\+?380\d{9}$/.test(value)) return fail('Перевірте номер телефона');
-    if (!consent?.checked) return fail('Потрібна згода на обробку даних');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-    btn.disabled = true;
-    btn.textContent = 'Надсилаю…';
+    const value = (phone?.value ?? '').replace(/[^\d+]/g, '');
+    if (!/^\+?380\d{9}$/.test(value)) {
+      phone?.setAttribute('aria-invalid', 'true');
+      return fail('Перевірте номер телефона', phone);
+    }
+    phone?.removeAttribute('aria-invalid');
+
+    if (!consent?.checked) return fail('Потрібна згода на обробку даних', consent);
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Надсилаю…'; }
     if (status) status.textContent = '';
 
-    const fd = new FormData();
+    const fd = new FormData(form);
     fd.set('phone', value.startsWith('+') ? value : `+${value}`);
-    fd.set('company', trap?.value ?? '');       // honeypot
     fd.set('elapsed', String(Date.now() - openedAt)); // боти сабмітять миттєво
     fd.set('page', location.pathname);
 

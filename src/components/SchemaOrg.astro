@@ -3,11 +3,10 @@ import type { SiteData } from '../lib/site';
 
 interface Props {
   site: SiteData;
-  url: string;
   isMobilePage?: boolean;
 }
 
-const { site, url, isMobilePage = false } = Astro.props;
+const { site, isMobilePage = false } = Astro.props;
 const { contacts, coverage, services, reviews, faq } = site;
 
 const DAY_MAP: Record<string, string> = {
@@ -110,8 +109,8 @@ const graph = [business, ...serviceNodes, ...(faqNode ? [faqNode] : [])];
 const jsonLd = { '@context': 'https://schema.org', '@graph': graph };
 ---
 
+<!-- canonical живе в Base.astro: він потрібен усім сторінкам, а schema.org — ні -->
 <script
   type="application/ld+json"
   set:html={JSON.stringify(jsonLd)}
 />
-<link rel="canonical" href={url} />

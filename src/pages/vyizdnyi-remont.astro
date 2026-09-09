@@ -11,7 +11,6 @@ import { formatPhone, telHref } from '../lib/format';
 
 const site = await loadSite('mobile');
 const { contacts, coverage, meta, phone, show } = site;
-const url = new URL('/vyizdnyi-remont/', Astro.site).toString();
 
 const feeText =
   coverage.travel_fee === 0
@@ -29,7 +28,7 @@ const feeText =
   трактує як дубль і може зняти сніпет з обох.
 -->
 <Base title={meta.seo_title} description={meta.seo_description}>
-  <SchemaOrg slot="head" site={site} url={url} isMobilePage={true} />
+  <SchemaOrg slot="head" site={site} isMobilePage={true} />
   <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
 
   <section class="mh">
@@ -67,6 +66,15 @@ const feeText =
   )}
 
   <Prices services={site.services} phone={phone} />
+
+  <!--
+    Зворотне посилання на головну — поза умовними блоками навмисно.
+    Якщо власник колись очистить «умови роботи», сторінка не має
+    лишитися без єдиного змістового шляху назад.
+  -->
+  <p class="back">
+    <a href="/">Ремонт сколів у майстерні: ціни, приклади робіт, гарантія →</a>
+  </p>
 
   <div id="scroll-depth-75" aria-hidden="true"></div>
 
@@ -109,6 +117,14 @@ const feeText =
     font-size: 0.9rem;
   }
   .area__note, .cond__note { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .back { margin: 0; padding: 0 1rem 1rem; font-size: 0.9rem; }
+  .back a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent);
+    font-weight: 600;
+  }
   .cond p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
 
   @media (min-width: 768px) {
