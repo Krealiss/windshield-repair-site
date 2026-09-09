@@ -120,7 +120,7 @@ const { placement = 'form' } = Astro.props;
     width: 100%;
     max-width: 30rem;
     padding: 1.25rem;
-    border: 1px solid #dbe6fb;
+    border: 1px solid var(--accent-line);
     border-radius: var(--r-lg);
     background: var(--surface);
     box-shadow: var(--shadow);
@@ -151,7 +151,7 @@ const { placement = 'form' } = Astro.props;
     min-width: 0;
   }
   input[type='tel']:focus-visible, input[type='file']:focus-visible { outline-offset: 1px; }
-  input[type='tel'][aria-invalid='true'] { border-color: #b91c1c; background: #fef2f2; }
+  input[type='tel'][aria-invalid='true'] { border-color: var(--danger); background: var(--danger-soft); }
 
   #lead-submit { width: 100%; }
   #lead-submit[disabled] { opacity: 0.6; }

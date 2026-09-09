@@ -28,7 +28,7 @@ const here = Astro.url.pathname;
     <a class="hdr__brand" href="/" aria-label="На головну">
       <svg class="hdr__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
         <rect width="64" height="64" rx="14" fill="var(--accent)"></rect>
-        <g stroke="#fff" stroke-width="3.6" stroke-linecap="round">
+        <g stroke="var(--on-accent)" stroke-width="3.6" stroke-linecap="round">
           <path d="M32 32 L32 13"></path>
           <path d="M32 32 L47 21"></path>
           <path d="M32 32 L51 39"></path>
@@ -37,7 +37,7 @@ const here = Astro.url.pathname;
           <path d="M32 32 L13 36"></path>
           <path d="M32 32 L17 19"></path>
         </g>
-        <circle cx="32" cy="32" r="5.4" fill="#fff"></circle>
+        <circle cx="32" cy="32" r="5.4" fill="var(--on-accent)"></circle>
       </svg>
       <span class="hdr__name">Ремонт скла</span>
     </a>

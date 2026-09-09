@@ -31,7 +31,8 @@ const year = new Date().getFullYear();
          який svg на домашній екран не бере. -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#1d4ed8" />
+    <meta name="theme-color" content="#1d4ed8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
 
     <!--
       Посилання на сайт кидають у Viber і Telegram — там прев'ю з картинкою
@@ -109,19 +110,47 @@ const year = new Date().getFullYear();
       }
 
       :root {
-        /* Колір */
+        /*
+          Кожен колір сайту живе тут і тільки тут.
+          Правило просте: у компонентах не має бути жодного #rrggbb —
+          інакше однакові на вигляд відтінки розповзаються по файлах
+          копіями, і будь-яка зміна палітри стає полюванням.
+        */
+
+        /* Акцент */
         --accent: #1d4ed8;
         --accent-strong: #1a3fb0;
-        --accent-soft: #eef4ff;
+        --accent-soft: #eef4ff;      /* тло акцентної смуги */
+        --accent-line: #dbe6fb;      /* рамка картки на акцентній смузі */
+        --on-accent: #ffffff;        /* текст поверх акценту */
+
+        /* Текст */
         --text: #0f172a;
         --muted: #475569;
-        --border: #e2e8f0;
-        --surface: #ffffff;
-        --surface-alt: #f8fafc;
-        --star: #f59e0b;
         /* Окремий токен для текстових посилань: на темній смузі
            акцентний синій по темно-синьому просто не читається */
         --link: var(--accent);
+
+        /* Поверхні й лінії */
+        --surface: #ffffff;
+        --surface-alt: #f8fafc;
+        --border: #e2e8f0;
+        --border-strong: #cbd8e8;    /* рамка картки під курсором */
+        --rule: #cbd5e1;             /* декоративні риски й маркери */
+        --band-dark-bg: #0f172a;     /* тло темної смуги */
+
+        /* Стани */
+        --star: #f59e0b;
+        --star-off: #dbe3ec;
+        --danger: #b91c1c;
+        --danger-soft: #fef2f2;
+
+        /* Кольори поверх темної смуги — окремо, бо вони не залежать
+           від того, світла тема на сайті чи темна */
+        --on-dark: #cbd5e1;
+        --on-dark-strong: #ffffff;
+        --on-dark-muted: #94a3b8;
+        --on-dark-link: #93b4fd;
 
         /* Форма */
         --r-sm: 10px;
@@ -131,10 +160,81 @@ const year = new Date().getFullYear();
 
         /* Тінь одна на весь сайт: ледь помітний підйом, без «пластику» */
         --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -16px rgba(15, 23, 42, 0.28);
+        --shadow-up: 0 -8px 24px -18px rgba(15, 23, 42, 0.45);
+
+        /* Підпис поверх фотографії */
+        --overlay: rgba(15, 23, 42, 0.78);
+        --on-overlay: #ffffff;
+
+        /* Скло на головній картинці */
+        --glass-1: #e8effb;
+        --glass-2: #cfdcf2;
+        --glass-3: #aebfdb;
+        --glass-crack: #64748b;
+        --glass-sheen: #ffffff;
+        --glass-edge: rgba(15, 23, 42, 0.08);
 
         /* Ритм */
         --container: 62rem;
         --section-y: clamp(2.25rem, 6vw, 4rem);
+      }
+
+      /*
+        Темна тема — за системним налаштуванням, без перемикача.
+
+        Чому без перемикача: він потребує скрипта, який виконується
+        ДО першого малювання (інакше сторінка блимає світлим), плюс
+        збереження вибору. Браузер і так знає, що людині зручніше,
+        і повідомляє це. Перемикач можна додати згодом — уся палітра
+        для цього вже є.
+
+        Тут перевизначаються тільки токени. Якщо колись доведеться
+        правити колір у компоненті — це знак, що бракує токена.
+      */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+
+          /* Акцент світлішає: #1d4ed8 на темному тлі — майже чорна пляма,
+             а кнопка мусить читатися як кнопка. Тому й текст поверх
+             акценту стає темним, а не білим. */
+          --accent: #60a5fa;
+          --accent-strong: #93c0fd;
+          --accent-soft: #16233c;
+          --accent-line: #24345a;
+          --on-accent: #0b1220;
+
+          --text: #e8edf5;
+          --muted: #9fb0c4;
+          --link: #8ab4fc;
+
+          --surface: #0f172a;
+          --surface-alt: #131e33;
+          --border: #24314b;
+          --border-strong: #35486b;
+          --rule: #3b4c6b;
+
+          /* Темна смуга на темній темі мусить бути СВІТЛІШОЮ за сторінку,
+             інакше вона просто зникає */
+          --band-dark-bg: #1b2b48;
+
+          --star: #fbbf24;
+          --star-off: #2b384f;
+          --danger: #fca5a5;
+          --danger-soft: #2a1517;
+
+          --overlay: rgba(2, 6, 16, 0.82);
+
+          --glass-1: #223353;
+          --glass-2: #182741;
+          --glass-3: #101c31;
+          --glass-crack: #94a3b8;
+          --glass-sheen: #cbd5e1;
+          --glass-edge: rgba(255, 255, 255, 0.1);
+
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -16px rgba(0, 0, 0, 0.75);
+          --shadow-up: 0 -8px 24px -18px rgba(0, 0, 0, 0.85);
+        }
       }
 
       *, *::before, *::after { box-sizing: border-box; }
@@ -185,7 +285,7 @@ const year = new Date().getFullYear();
         padding: 0.65rem 1rem;
         border-radius: var(--r-sm);
         background: var(--accent);
-        color: #fff;
+        color: var(--on-accent);
         font-weight: 600;
         text-decoration: none;
         transition: top 0.15s ease-out;
@@ -218,17 +318,20 @@ const year = new Date().getFullYear();
         розрахований на світле тло і на темному просто зникає.
       */
       .band--dark {
-        background: #0f172a;
-        color: #cbd5e1;
-        --muted: #94a3b8;
+        background: var(--band-dark-bg);
+        color: var(--on-dark);
+        --text: var(--on-dark);
+        --muted: var(--on-dark-muted);
         --border: rgba(255, 255, 255, 0.14);
+        --border-strong: rgba(255, 255, 255, 0.24);
+        --rule: rgba(255, 255, 255, 0.24);
         --surface: rgba(255, 255, 255, 0.05);
         --surface-alt: rgba(255, 255, 255, 0.05);
-        --link: #93b4fd;
+        --link: var(--on-dark-link);
       }
-      .band--dark h2, .band--dark h3, .band--dark strong { color: #ffffff; }
-      .band--dark a:not(.btn) { color: #93b4fd; }
-      .band--dark :focus-visible { outline-color: #93b4fd; }
+      .band--dark h2, .band--dark h3, .band--dark strong { color: var(--on-dark-strong); }
+      .band--dark a:not(.btn) { color: var(--on-dark-link); }
+      .band--dark :focus-visible { outline-color: var(--on-dark-link); }
 
       /* Заголовки секцій — однакові скрізь */
       .band > h2, .band > .band__head > h2 {
@@ -260,7 +363,7 @@ const year = new Date().getFullYear();
 
       .btn--primary {
         background: var(--accent);
-        color: #fff;
+        color: var(--on-accent);
         box-shadow: var(--shadow);
       }
       .btn--primary:hover { background: var(--accent-strong); }

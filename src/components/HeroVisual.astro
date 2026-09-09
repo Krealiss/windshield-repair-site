@@ -19,22 +19,22 @@
   <svg viewBox="0 0 480 360" preserveAspectRatio="xMidYMid slice" focusable="false">
     <defs>
       <linearGradient id="hv-glass" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#e8effb" />
-        <stop offset="55%" stop-color="#cfdcf2" />
-        <stop offset="100%" stop-color="#aebfdb" />
+        <stop offset="0%" stop-color="var(--glass-1)" />
+        <stop offset="55%" stop-color="var(--glass-2)" />
+        <stop offset="100%" stop-color="var(--glass-3)" />
       </linearGradient>
       <linearGradient id="hv-sheen" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
-        <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        <stop offset="0%" stop-color="var(--glass-sheen)" stop-opacity="0.55" />
+        <stop offset="100%" stop-color="var(--glass-sheen)" stop-opacity="0" />
       </linearGradient>
       <radialGradient id="hv-impact">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
-        <stop offset="60%" stop-color="#f8fafc" stop-opacity="0.5" />
-        <stop offset="100%" stop-color="#94a3b8" stop-opacity="0" />
+        <stop offset="0%" stop-color="var(--glass-sheen)" stop-opacity="0.95" />
+        <stop offset="60%" stop-color="var(--glass-sheen)" stop-opacity="0.5" />
+        <stop offset="100%" stop-color="var(--glass-crack)" stop-opacity="0" />
       </radialGradient>
       <radialGradient id="hv-halo">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75" />
-        <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        <stop offset="0%" stop-color="var(--glass-sheen)" stop-opacity="0.75" />
+        <stop offset="100%" stop-color="var(--glass-sheen)" stop-opacity="0" />
       </radialGradient>
     </defs>
 
@@ -45,7 +45,7 @@
     <path d="M-40 300 L200 -40 L330 -40 L20 360 Z" fill="url(#hv-sheen)" />
 
     <!-- Ледь помітні смуги, щоб площина не була мертвою -->
-    <g stroke="#ffffff" stroke-opacity="0.22" stroke-width="1">
+    <g stroke="var(--glass-sheen)" stroke-opacity="0.22" stroke-width="1">
       <path d="M330 -10 L120 370" />
       <path d="M395 -10 L185 370" />
     </g>
@@ -55,7 +55,7 @@
 
     <!-- Промені сколу: різна довжина і товщина, інакше схоже на сніжинку -->
     <g
-      stroke="#64748b"
+      stroke="var(--glass-crack)"
       stroke-linecap="round"
       fill="none"
       transform="translate(252 172) scale(1.35)"
@@ -79,7 +79,7 @@
 
     <!-- Точка удару -->
     <circle cx="252" cy="172" r="19" fill="url(#hv-impact)" />
-    <circle cx="252" cy="172" r="5.5" fill="#475569" fill-opacity="0.55" />
+    <circle cx="252" cy="172" r="5.5" fill="var(--glass-crack)" fill-opacity="0.55" />
   </svg>
 </div>
 
@@ -90,7 +90,7 @@
     max-height: 15rem;
     border-radius: var(--r-lg);
     overflow: hidden;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border: 1px solid var(--glass-edge);
     box-shadow: var(--shadow);
   }
   .hv svg { width: 100%; height: 100%; display: block; }
