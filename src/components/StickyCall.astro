@@ -19,9 +19,13 @@ const { phone, viber, telegram } = Astro.props;
 
   Панель з'являється тільки коли перший екран пішов угору — інакше
   вона дублює кнопку, яка й так на видноті, і з'їдає частину екрана.
--->
-<div id="sticky-sentinel" aria-hidden="true"></div>
 
+  Сентинел, за яким стежить спостерігач, ставить сторінка — наприкінці
+  свого першого екрана (див. Hero.astro і vyizdnyi-remont.astro).
+  Тут його немає навмисно: цей компонент рендериться в кінці <body>,
+  і власний сентинел опинявся б унизу сторінки, тобто означав би
+  протилежне тому, що потрібно.
+-->
 <div class="sticky-call" id="sticky-call" data-visible="false">
   <a
     class="sticky-call__main"
@@ -111,8 +115,8 @@ const { phone, viber, telegram } = Astro.props;
   const bar = document.getElementById('sticky-call');
   const sentinel = document.getElementById('sticky-sentinel');
 
-  if (bar && sentinel) {
-    if ('IntersectionObserver' in window) {
+  if (bar) {
+    if (sentinel && 'IntersectionObserver' in window) {
       new IntersectionObserver(
         ([entry]) => {
           // Сентинел видно = ми на першому екрані = панель ховаємо
@@ -121,7 +125,8 @@ const { phone, viber, telegram } = Astro.props;
         { rootMargin: '0px' }
       ).observe(sentinel);
     } else {
-      // Старий браузер — показуємо завжди. Краще зайва панель, ніж жодної
+      // Старий браузер або сторінка без сентинела — показуємо завжди.
+      // Краще зайва панель, ніж кнопка дзвінка, якої немає ніде.
       bar.dataset.visible = 'true';
     }
   }

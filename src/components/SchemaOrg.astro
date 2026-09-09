@@ -1,5 +1,6 @@
 ---
 import type { SiteData } from '../lib/site';
+import { padTime } from '../lib/format';
 
 interface Props {
   site: SiteData;
@@ -49,8 +50,10 @@ if (contacts.hours.length) {
     .map((h) => ({
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: DAY_MAP[h.day] ?? h.day,
-      opens: h.from,
-      closes: h.to,
+      // schema.org чекає HH:MM. Власник цілком може ввести «9:00»,
+      // і Google мовчки відкине всю розмітку графіка.
+      opens: padTime(h.from!),
+      closes: padTime(h.to!),
     }));
 }
 
