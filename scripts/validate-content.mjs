@@ -194,6 +194,58 @@ if (coverage) {
   }
 }
 
+// ── 7. ДЕМОНСТРАЦІЙНІ ЗАГЛУШКИ ────────────────────────────
+/**
+ * Заглушки з шаблону, які легко не помітити: вони не ламають збірку,
+ * сайт із ними виглядає працездатним — і саме тому їдуть у продакшн.
+ * Ціна помилки різна: неправильний домен ламає canonical, sitemap і
+ * schema.org одразу для всіх сторінок, а чужий телефон означає, що
+ * кожен дзвінок із сайту йде повз власника.
+ *
+ * У прев'ю це лише попередження — розробляти з example.com.ua нормально.
+ */
+const PLACEHOLDERS = [
+  {
+    file: 'astro.config.mjs',
+    find: 'example.com.ua',
+    what: 'домен із шаблону в site: — canonical, sitemap і schema.org вкажуть у нікуди',
+  },
+  {
+    file: 'public/robots.txt',
+    find: 'example.com.ua',
+    what: 'домен із шаблону в рядку Sitemap: — пошуковики не знайдуть карту сайту',
+  },
+  {
+    file: 'public/admin/config.yml',
+    find: 'auth.example.workers.dev',
+    what: 'адреса OAuth-воркера з шаблону — вхід у CMS не спрацює',
+  },
+  {
+    file: 'public/admin/config.yml',
+    find: 'OWNER/REPO',
+    what: 'репозиторій не вказано — CMS не знатиме, куди зберігати правки',
+  },
+  {
+    file: 'src/content/contacts.yml',
+    find: '+380671234567',
+    what: 'демонстраційний телефон — усі кнопки дзвінка ведуть не власнику',
+  },
+  {
+    file: 'src/content/contacts.yml',
+    find: 'Хрещатик 12',
+    what: 'демонстраційна адреса — потрапить у schema.org і в посилання на карти',
+  },
+];
+
+for (const p of PLACEHOLDERS) {
+  if (!existsSync(p.file)) continue;
+  const text = await readFile(p.file, 'utf8');
+  if (!text.includes(p.find)) continue;
+  const msg = `лишилася заглушка "${p.find}" — ${p.what}`;
+  if (PROD) err(p.file, msg);
+  else warn(p.file, msg);
+}
+
 // ── звіт ──────────────────────────────────────────────────
 const line = '─'.repeat(58);
 console.log(`\n${line}\nПеревірка контенту — режим: ${PROD ? 'ПРОДАКШН' : "прев'ю"}\n${line}`);
