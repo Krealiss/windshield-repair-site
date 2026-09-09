@@ -7,6 +7,29 @@
   <title>Редагування сайту</title>
 </head>
 <body>
-  <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js" type="module"></script>
+  <!--
+    Версія зафіксована навмисно.
+
+    Раніше тут стояло @sveltia/cms без версії, тобто «завжди остання».
+    Це означало дві речі: адмінка могла зламатися будь-якого дня від
+    чужого релізу, і будь-хто, хто отримав би доступ до пакета на npm,
+    отримав би доступ до репозиторію власника — бо саме цей скрипт
+    ходить у GitHub від його імені.
+
+    integrity — контрольна сума конкретно цього файлу. Якщо CDN колись
+    віддасть інший вміст, браузер його не виконає.
+
+    Оновлення версії — свідома дія: підняти номер і перерахувати хеш
+    (openssl dgst -sha384 -binary sveltia-cms.js | openssl base64 -A).
+
+    type="module" тут немає навмисно: збірка Sveltia — звичайний скрипт,
+    і з цим атрибутом вона сама пише в консоль попередження про
+    непередбачувану поведінку.
+  -->
+  <script
+    src="https://unpkg.com/@sveltia/cms@0.209.0/dist/sveltia-cms.js"
+    integrity="sha384-GTp+yDNrobH87mNPd0gcJHaSk/Xh+hmCA+DHA0R/0DKo/Ce36l/lRiRSuIR2Dbqw"
+    crossorigin="anonymous"
+  ></script>
 </body>
 </html>

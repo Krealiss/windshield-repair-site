@@ -119,14 +119,16 @@ for (const g of published) {
       continue;
     }
 
-    // Astro резолвить image() відносно самого файлу запису. Абсолютний шлях
-    // він вважає посиланням у public/ і збірка падає з ImageNotFound.
+    // Astro резолвить image() або від кореня проєкту ("/src/..."), або
+    // відносно самого файлу запису ("../../"). Шлях на кшталт
+    // "/assets/gallery/foto.webp" він вважає посиланням у public/,
+    // не знаходить файл і валить збірку з ImageNotFound.
     // Такий шлях означає, що в public/admin/config.yml зіпсували public_folder.
-    if (String(src).startsWith('/')) {
+    if (String(src).startsWith('/') && !String(src).startsWith('/src/')) {
       err(
         g._file,
-        `${side}: абсолютний шлях "${src}" — Astro його не знайде. ` +
-          'Очікується відносний, напр. ../../assets/gallery/foto.webp. ' +
+        `${side}: шлях "${src}" Astro не знайде — він шукатиме файл у public/. ` +
+          'Очікується /src/assets/gallery/foto.webp. ' +
           'Перевірте public_folder у public/admin/config.yml'
       );
       continue;

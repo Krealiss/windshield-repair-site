@@ -17,16 +17,19 @@ media_folder: src/assets/gallery
 
 # Який шлях CMS запише в YAML-запис галереї.
 #
-# Тут МАЄ бути відносний шлях, а не /assets/gallery. Причина: поле before/after
-# у content.config.ts описане через image(), і Astro резолвить такий шлях
-# відносно самого файлу запису — src/content/gallery/*.yml. Абсолютний шлях
-# Astro вважає посиланням у public/ і збірка падає з ImageNotFound на першому ж
-# фото, яке завантажить власник.
+# Значення затиснуте між двома вимогами, і збігається з ними лише в цій формі:
 #
-# ../../ — це рівно шлях із src/content/gallery до src/assets/gallery.
-# Якщо колись з'явиться інша колекція з полем image на іншій глибині,
-# їй знадобиться власний public_folder на рівні колекції.
-public_folder: ../../assets/gallery
+#   Sveltia   — приймає тільки абсолютний шлях, що починається з "/".
+#               Відносний ("../../assets/gallery") валить увесь конфіг
+#               адмінки з «The configured public folder is invalid».
+#   Astro     — поле before/after описане через image(). Шлях "/assets/gallery"
+#               він вважає посиланням у public/, не знаходить файл і валить
+#               збірку з ImageNotFound. А ось "/src/..." резолвить від кореня
+#               проєкту — саме те, що треба.
+#
+# Тобто "/assets/gallery" ламає збірку, "../../assets/gallery" ламає адмінку,
+# і працює тільки "/src/assets/gallery". Перевірено на обох.
+public_folder: /src/assets/gallery
 
 # Автоматичний ресайз і WebP на клієнті — власник не зіпсує швидкість
 media_libraries:
