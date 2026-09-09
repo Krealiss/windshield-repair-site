@@ -26,7 +26,7 @@ const steps = [
 ];
 ---
 
-<section class="band process">
+<section class="band band--dark process">
   <h2>Як це відбувається</h2>
 
   <ol class="process__steps">
@@ -108,7 +108,8 @@ const steps = [
     color: #fff;
     font-weight: 700;
     font-size: 0.95rem;
-    box-shadow: 0 0 0 4px var(--surface);
+    /* Обвідка кольором смуги: кружок «перерізає» лінію між кроками */
+    box-shadow: 0 0 0 4px #0f172a;
   }
 
   .process__where { display: grid; gap: 0.85rem; }
@@ -127,7 +128,7 @@ const steps = [
     min-height: 44px;
     display: inline-flex;
     align-items: center;
-    color: var(--accent);
+    color: var(--link);
     font-weight: 600;
     text-decoration: none;
   }

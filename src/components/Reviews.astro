@@ -21,8 +21,22 @@ const fmt = new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' })
       <li class="rev__item">
         <div class="rev__head">
           <strong>{r.author}</strong>
-          <span class="rev__stars" aria-label={`Оцінка ${r.rating} з 5`}>
-            {'★'.repeat(r.rating)}<span class="rev__dim">{'★'.repeat(5 - r.rating)}</span>
+          <!--
+            Зірки намальовані, а не написані символом ★: у шрифті сайту
+            цього гліфа немає, і браузер підставляв би чужу гарнітуру —
+            п'ять зірок різного накреслення в одному рядку.
+          -->
+          <span class="rev__stars" role="img" aria-label={`Оцінка ${r.rating} з 5`}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <svg
+                class={i <= r.rating ? 'is-on' : undefined}
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M10 1.6l2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5 2.7 1-5.6-4.1-3.9 5.6-.8z" />
+              </svg>
+            ))}
           </span>
         </div>
         <p class="rev__text">{r.text}</p>
@@ -52,8 +66,9 @@ const fmt = new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' })
 
   .rev__head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
   .rev__head strong { letter-spacing: -0.01em; }
-  .rev__stars { color: var(--star); letter-spacing: 0.08em; white-space: nowrap; font-size: 0.95rem; }
-  .rev__dim { color: #dbe3ec; }
+  .rev__stars { display: inline-flex; gap: 0.1rem; flex: none; }
+  .rev__stars svg { width: 15px; height: 15px; fill: #dbe3ec; }
+  .rev__stars svg.is-on { fill: var(--star); }
 
   .rev__text { margin: 0; font-size: 0.95rem; line-height: 1.6; }
   .rev__meta { margin: 0; font-size: 0.8rem; color: var(--muted); }

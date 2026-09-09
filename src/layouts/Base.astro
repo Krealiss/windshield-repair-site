@@ -48,8 +48,24 @@ const year = new Date().getFullYear();
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Шрифт системний: нуль запитів, нуль FOUT, миттєвий рендер.
-         Кастомний шрифт тут не додав би ані конверсії, ані довіри. -->
+    <!--
+      Шрифт свій, але не з CDN.
+
+      README забороняє зовнішні шрифти, і це правильно: запит на чужий
+      домен перед першим рендером — найдорожче, що можна зробити з LCP.
+      Тут інакше: файл лежить на нашому ж домені, це один варіативний
+      woff2 на 34 КБ із вирізаною кирилицею і латиницею, з preload
+      і кешем на рік. Системний шрифт був головною причиною, чому
+      сайт читався як шаблон.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/onest-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <slot name="head" />
   </head>
 
@@ -77,6 +93,21 @@ const year = new Date().getFullYear();
     </footer>
 
     <style is:global>
+      /*
+        Варіативний Onest: одна вісь ваги 400–800, тож усі накреслення
+        на сайті беруться з цього ж файлу без додаткових запитів.
+        swap, а не block: текст показуємо системним шрифтом одразу,
+        підміняємо, коли приїде свій. Порожній екран заради шрифта —
+        гірше за коротку підміну.
+      */
+      @font-face {
+        font-family: 'Onest';
+        src: url('/fonts/onest-var.woff2') format('woff2');
+        font-weight: 400 800;
+        font-style: normal;
+        font-display: swap;
+      }
+
       :root {
         /* Колір */
         --accent: #1d4ed8;
@@ -88,6 +119,9 @@ const year = new Date().getFullYear();
         --surface: #ffffff;
         --surface-alt: #f8fafc;
         --star: #f59e0b;
+        /* Окремий токен для текстових посилань: на темній смузі
+           акцентний синій по темно-синьому просто не читається */
+        --link: var(--accent);
 
         /* Форма */
         --r-sm: 10px;
@@ -122,7 +156,7 @@ const year = new Date().getFullYear();
         margin: 0;
         color: var(--text);
         background: var(--surface);
-        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
         line-height: 1.55;
         /* Місце під sticky-панель, щоб вона не накривала контакти */
         padding-bottom: 5rem;
@@ -174,6 +208,27 @@ const year = new Date().getFullYear();
 
       .band--alt { background: var(--surface-alt); }
       .band--tint { background: var(--accent-soft); }
+
+      /*
+        Одна темна смуга на сторінку. Сенс не в моді: суцільно світла
+        сторінка читається як документ, а не як сайт. Темний блок
+        розрізає її навпіл і дає око, за що зачепитися.
+
+        Приглушений колір тут перевизначається обов'язково — --muted
+        розрахований на світле тло і на темному просто зникає.
+      */
+      .band--dark {
+        background: #0f172a;
+        color: #cbd5e1;
+        --muted: #94a3b8;
+        --border: rgba(255, 255, 255, 0.14);
+        --surface: rgba(255, 255, 255, 0.05);
+        --surface-alt: rgba(255, 255, 255, 0.05);
+        --link: #93b4fd;
+      }
+      .band--dark h2, .band--dark h3, .band--dark strong { color: #ffffff; }
+      .band--dark a:not(.btn) { color: #93b4fd; }
+      .band--dark :focus-visible { outline-color: #93b4fd; }
 
       /* Заголовки секцій — однакові скрізь */
       .band > h2, .band > .band__head > h2 {

@@ -1,5 +1,6 @@
 ---
 import { formatPhone, telHref } from '../lib/format';
+import HeroVisual from './HeroVisual.astro';
 
 interface Props {
   h1: string;
@@ -24,11 +25,18 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
   кому незручно говорити.
 -->
 <section class="band hero">
-  <h1 class="hero__title">{h1}</h1>
+  <!--
+    Текст загорнутий в окрему колонку навмисно. Без обгортки заголовок,
+    підзаголовок і кнопки були б рядками спільного гриду, а рядки
+    розтягувалися б під висоту картинки — між заголовком і підзаголовком
+    зʼявлялася діра завширшки з абзац.
+  -->
+  <div class="hero__text">
+    <h1 class="hero__title">{h1}</h1>
 
-  {subtitle && <p class="hero__sub">{subtitle}</p>}
+    {subtitle && <p class="hero__sub">{subtitle}</p>}
 
-  <div class="hero__cta">
+    <div class="hero__cta">
     <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="hero">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
         <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
@@ -36,28 +44,38 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
       <span>{formatPhone(phone)}</span>
     </a>
 
-    <a class="btn btn--ghost" href="#lead" data-cta="hero_form">Надіслати фото сколу</a>
-  </div>
+      <a class="btn btn--ghost" href="#lead" data-cta="hero_form">Надіслати фото сколу</a>
+    </div>
 
-  <ul class="hero__trust">
-    <li>
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
-        <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
-      </svg>
-      <span>{address}</span>
-    </li>
-
-    {guarantee && (
+    <ul class="hero__trust">
       <li>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
-          <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+          <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
         </svg>
-        <span>{guarantee}</span>
+        <span>{address}</span>
       </li>
-    )}
-  </ul>
+
+      {guarantee && (
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+            <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+          <span>{guarantee}</span>
+        </li>
+      )}
+    </ul>
+  </div>
+
+  <!--
+    На телефоні картинка стоїть ПІСЛЯ кнопок навмисно: якби вона була
+    між підзаголовком і дзвінком, головна дія поїхала б за межі
+    першого екрана. На десктопі вона переїжджає в другу колонку.
+  -->
+  <div class="hero__visual">
+    <HeroVisual />
+  </div>
 
   <!-- Сентинел для sticky-панелі: поки він у полі зору, панель прихована -->
   <div id="sticky-sentinel" aria-hidden="true"></div>
@@ -71,6 +89,14 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
        а порожнеча між першим екраном і цінами з'їдає прокрутку */
     padding-bottom: calc(var(--section-y) * 0.6);
     background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
+  }
+
+  .hero__text {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.15rem;
+    align-content: start;
+    justify-items: start;
   }
 
   .hero__title {
@@ -115,9 +141,23 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
   }
   .hero__trust svg { width: 17px; height: 17px; flex: none; color: var(--accent); }
 
+  .hero__visual { margin-top: 0.6rem; }
+
   @media (min-width: 768px) {
     .hero { gap: 1.35rem; }
     .hero__title { max-width: 16ch; }
     .hero__sub { max-width: 46ch; }
+  }
+
+  /* Дві колонки: текст ліворуч, зображення праворуч */
+  @media (min-width: 900px) {
+    .hero {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      column-gap: 3rem;
+      align-items: center;
+    }
+    .hero__text { gap: 1.35rem; }
+    .hero__title { max-width: 14ch; }
+    .hero__visual { margin-top: 0; }
   }
 </style>
