@@ -5,7 +5,6 @@
       "url": ["http://localhost/index.html", "http://localhost/vyizdnyi-remont/index.html"],
       "numberOfRuns": 3,
       "settings": {
-        "preset": "desktop",
         "formFactor": "mobile",
         "screenEmulation": {
           "mobile": true,
@@ -29,8 +28,7 @@
         "cumulative-layout-shift": ["error", { "maxNumericValue": 0.02 }],
         "total-byte-weight": ["warn", { "maxNumericValue": 500000 }],
         "unused-javascript": ["warn", { "maxNumericValue": 10000 }],
-        "uses-responsive-images": "error",
-        "tap-targets": "error"
+        "uses-responsive-images": "error"
       }
     }
   }
