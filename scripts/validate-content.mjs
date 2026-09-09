@@ -118,6 +118,20 @@ for (const g of published) {
       err(g._file, `опубліковано, але немає фото "${side}" — заглушка в продакшні`);
       continue;
     }
+
+    // Astro резолвить image() відносно самого файлу запису. Абсолютний шлях
+    // він вважає посиланням у public/ і збірка падає з ImageNotFound.
+    // Такий шлях означає, що в public/admin/config.yml зіпсували public_folder.
+    if (String(src).startsWith('/')) {
+      err(
+        g._file,
+        `${side}: абсолютний шлях "${src}" — Astro його не знайде. ` +
+          'Очікується відносний, напр. ../../assets/gallery/foto.webp. ' +
+          'Перевірте public_folder у public/admin/config.yml'
+      );
+      continue;
+    }
+
     const path = join(MEDIA, String(src).split('/').pop());
     if (!existsSync(path)) {
       err(g._file, `файл ${src} не знайдено на диску`);
