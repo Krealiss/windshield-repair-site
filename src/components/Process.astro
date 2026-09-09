@@ -1,0 +1,98 @@
+---
+interface Props {
+  coverage: {
+    areas: string[];
+    travel_fee: number;
+    free_from?: number;
+    radius_km?: number;
+    conditions?: string;
+  };
+  address: string;
+}
+const { coverage, address } = Astro.props;
+
+const feeText =
+  coverage.travel_fee === 0
+    ? 'Виїзд безкоштовний'
+    : coverage.free_from
+      ? `Виїзд ${coverage.travel_fee} грн, безкоштовно від ${coverage.free_from} грн`
+      : `Виїзд ${coverage.travel_fee} грн`;
+
+const steps = [
+  { n: 1, t: 'Дзвінок або фото', d: 'Оцінюю пошкодження і називаю ціну ще до зустрічі.' },
+  { n: 2, t: 'Очищення сколу', d: 'Прибираю бруд і вологу з каналу — без цього полімер не зчепиться.' },
+  { n: 3, t: 'Заповнення полімером', d: 'Під вакуумом, щоб не лишилось повітря в тріщині.' },
+  { n: 4, t: 'Полімеризація і поліровка', d: 'Ультрафіолет, зачистка поверхні врівень зі склом.' },
+];
+---
+
+<section class="process">
+  <h2>Як це відбувається</h2>
+
+  <ol class="process__steps">
+    {steps.map((s) => (
+      <li>
+        <span class="process__num" aria-hidden="true">{s.n}</span>
+        <div>
+          <strong>{s.t}</strong>
+          <span>{s.d}</span>
+        </div>
+      </li>
+    ))}
+  </ol>
+
+  <div class="process__where">
+    <div class="process__card">
+      <h3>Приїжджайте до нас</h3>
+      <p>{address}</p>
+    </div>
+
+    <div class="process__card">
+      <h3>Або виїдемо до вас</h3>
+      <p>{feeText}</p>
+      {coverage.areas.length > 0 && (
+        <p class="process__areas">{coverage.areas.join(' · ')}</p>
+      )}
+      {coverage.conditions && <p class="process__cond">{coverage.conditions}</p>}
+    </div>
+  </div>
+</section>
+
+<style>
+  .process { padding: 2rem 1rem; display: grid; gap: 1.25rem; }
+  .process h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .process h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+
+  .process__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; counter-reset: s; }
+  .process__steps li { display: grid; grid-template-columns: 2rem 1fr; gap: 0.75rem; align-items: start; }
+  .process__steps div { display: grid; gap: 0.15rem; }
+  .process__steps span:not(.process__num) { font-size: 0.95rem; color: var(--muted); line-height: 1.5; }
+
+  .process__num {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .process__where { display: grid; gap: 0.75rem; }
+  .process__card {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-alt);
+  }
+  .process__card p { margin: 0; font-size: 0.95rem; }
+  .process__areas { margin-top: 0.35rem !important; color: var(--muted); font-size: 0.9rem !important; }
+  .process__cond { margin-top: 0.5rem !important; color: var(--muted); font-size: 0.85rem !important; }
+
+  @media (min-width: 768px) {
+    .process { padding: 3rem 2rem; }
+    .process__where { grid-template-columns: 1fr 1fr; }
+  }
+</style>

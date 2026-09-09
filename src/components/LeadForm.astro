@@ -1,0 +1,161 @@
+---
+/**
+ * Форма «надішліть фото сколу».
+ *
+ * Свідомо мінімальна: телефон + фото. Кожне зайве поле знижує
+ * конверсію, а форма тут узагалі другорядний канал — основний дзвінок.
+ *
+ * Ключова деталь: фото стискається в браузері ДО відправки.
+ * Знімок із сучасного телефона — 4–8 МБ. На мобільному інтернеті
+ * це 30+ секунд завантаження, і людина йде, не дочекавшись.
+ * Після ресайзу — 200–400 КБ.
+ */
+interface Props {
+  placement?: string;
+}
+const { placement = 'form' } = Astro.props;
+---
+
+<div class="lead" id="lead">
+  <p class="lead__title">Не впевнені, чи ремонтується ваш скол?</p>
+  <p class="lead__sub">Надішліть фото — відповім із ціною протягом 15 хвилин.</p>
+
+  <!-- Не <form>: сабміт робимо fetch'ем, щоб керувати станом і не втрачати людину на перезавантаженні -->
+  <div class="lead__fields">
+    <label class="lead__label" for="lead-phone">Ваш телефон</label>
+    <input
+      id="lead-phone"
+      type="tel"
+      inputmode="tel"
+      autocomplete="tel"
+      placeholder="+380 __ ___ __ __"
+      required
+    />
+
+    <label class="lead__label" for="lead-photo">Фото сколу (необовʼязково)</label>
+    <input id="lead-photo" type="file" accept="image/*" capture="environment" />
+    <p class="lead__hint" id="lead-photo-info" hidden></p>
+
+    <!-- Honeypot: реальна людина цього поля не бачить, бот заповнює -->
+    <div class="lead__trap" aria-hidden="true">
+      <label for="lead-company">Компанія</label>
+      <input id="lead-company" type="text" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <label class="lead__consent">
+      <input id="lead-consent" type="checkbox" required />
+      <span>Погоджуюсь на обробку персональних даних</span>
+    </label>
+
+    <button id="lead-submit" type="button" data-cta={placement}>Надіслати</button>
+    <p class="lead__status" id="lead-status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<style>
+  .lead__trap {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .lead__fields { display: grid; gap: 0.5rem; }
+  .lead__label { font-size: 0.9rem; font-weight: 600; }
+  .lead__hint { font-size: 0.8rem; color: var(--muted, #6b7280); margin: 0; }
+  .lead__consent { display: flex; gap: 0.5rem; font-size: 0.85rem; align-items: flex-start; }
+  input[type='tel'], input[type='file'] {
+    min-height: 48px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    font-size: 16px; /* менше 16px — iOS зумить сторінку при фокусі */
+  }
+  #lead-submit {
+    min-height: 48px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent, #1d4ed8);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  #lead-submit[disabled] { opacity: 0.6; }
+  .lead__status { font-size: 0.9rem; min-height: 1.2em; margin: 0; }
+</style>
+
+<script>
+  const $ = (id: string) => document.getElementById(id);
+  const phone = $('lead-phone') as HTMLInputElement | null;
+  const photo = $('lead-photo') as HTMLInputElement | null;
+  const trap = $('lead-company') as HTMLInputElement | null;
+  const consent = $('lead-consent') as HTMLInputElement | null;
+  const btn = $('lead-submit') as HTMLButtonElement | null;
+  const status = $('lead-status');
+  const info = $('lead-photo-info');
+
+  const MAX_EDGE = 1600;
+  const openedAt = Date.now();
+
+  /** Стискання на клієнті: 8 МБ → ~300 КБ */
+  async function shrink(file: File): Promise<Blob> {
+    if (!file.type.startsWith('image/')) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+      if (scale === 1 && file.size < 900_000) return file;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((r) =>
+        canvas.toBlob(r, 'image/jpeg', 0.82)
+      );
+      return blob ?? file;
+    } catch {
+      return file; // старий браузер — шлемо оригінал
+    }
+  }
+
+  photo?.addEventListener('change', () => {
+    const f = photo.files?.[0];
+    if (!f || !info) return;
+    info.hidden = false;
+    info.textContent = `Обрано: ${f.name}`;
+  });
+
+  function fail(msg: string) {
+    if (status) status.textContent = msg;
+    if (btn) { btn.disabled = false; btn.textContent = 'Надіслати'; }
+  }
+
+  btn?.addEventListener('click', async () => {
+    const value = (phone?.value ?? '').replace(/[^\d+]/g, '');
+    if (!/^\+?380\d{9}$/.test(value)) return fail('Перевірте номер телефона');
+    if (!consent?.checked) return fail('Потрібна згода на обробку даних');
+
+    btn.disabled = true;
+    btn.textContent = 'Надсилаю…';
+    if (status) status.textContent = '';
+
+    const fd = new FormData();
+    fd.set('phone', value.startsWith('+') ? value : `+${value}`);
+    fd.set('company', trap?.value ?? '');       // honeypot
+    fd.set('elapsed', String(Date.now() - openedAt)); // боти сабмітять миттєво
+    fd.set('page', location.pathname);
+
+    const file = photo?.files?.[0];
+    if (file) fd.set('photo', await shrink(file), 'skol.jpg');
+
+    try {
+      const res = await fetch('/api/lead', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(String(res.status));
+      window.dataLayer?.push({ event: 'form_submit', page_path: location.pathname });
+      location.href = '/thanks/';
+    } catch {
+      fail('Не вдалося надіслати. Зателефонуйте, будь ласка — так швидше.');
+    }
+  });
+</script>

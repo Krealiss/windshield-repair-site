@@ -1,0 +1,87 @@
+---
+import { formatPrice, telHref } from '../lib/format';
+
+interface Props {
+  services: Array<{
+    title: string;
+    price_from: number;
+    duration_min?: number;
+    note?: string;
+  }>;
+  phone: string;
+}
+const { services, phone } = Astro.props;
+---
+
+<!--
+  Ціни другим блоком. Слово «від» і «грн» додаються тут, а не
+  зберігаються в контенті — інакше в таблиці зʼявиться
+  «500грн», «від 500 грн.» і «500» одночасно.
+-->
+<section class="prices">
+  <h2>Ціни</h2>
+
+  <ul class="prices__list">
+    {services.map((s) => (
+      <li class="prices__item">
+        <div class="prices__body">
+          <span class="prices__title">{s.title}</span>
+          {s.note && <span class="prices__note">{s.note}</span>}
+        </div>
+        <div class="prices__right">
+          <span class="prices__price">{formatPrice(s.price_from)}</span>
+          {s.duration_min && <span class="prices__time">{s.duration_min} хв</span>}
+        </div>
+      </li>
+    ))}
+  </ul>
+
+  <p class="prices__disclaimer">
+    Точна ціна залежить від розміру й типу пошкодження. Надішліть фото
+    або зателефонуйте — скажу відразу, без огляду на місці.
+  </p>
+
+  <a class="prices__cta" href={telHref(phone)} data-cta="prices">Дізнатися ціну</a>
+</section>
+
+<style>
+  .prices { padding: 2rem 1rem; display: grid; gap: 1rem; }
+  .prices h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+
+  .prices__list { list-style: none; margin: 0; padding: 0; display: grid; }
+
+  .prices__item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .prices__item:last-child { border-bottom: 0; }
+
+  .prices__body { display: grid; gap: 0.15rem; }
+  .prices__title { font-weight: 600; }
+  .prices__note { font-size: 0.85rem; color: var(--muted); }
+
+  .prices__right { display: grid; justify-items: end; gap: 0.15rem; white-space: nowrap; }
+  .prices__price { font-weight: 700; }
+  .prices__time { font-size: 0.85rem; color: var(--muted); }
+
+  .prices__disclaimer { margin: 0; font-size: 0.9rem; color: var(--muted); }
+
+  .prices__cta {
+    justify-self: start;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 1.1rem;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  @media (min-width: 768px) { .prices { padding: 3rem 2rem; } }
+</style>

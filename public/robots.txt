@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Адмінка CMS — не для індексу
+Disallow: /admin/
+
+# Сторінка подяки: якщо потрапить у видачу, люди заходитимуть
+# на неї з пошуку замість головної
+Disallow: /thanks/
+
+Sitemap: https://example.com.ua/sitemap-index.xml

@@ -1,0 +1,51 @@
+---
+import Base from '../layouts/Base.astro';
+import { loadSite } from '../lib/site';
+import { formatPhone, telHref } from '../lib/format';
+
+const site = await loadSite('home');
+const phone = site.phone;
+---
+
+<!--
+  Окрема сторінка подяки, а не повідомлення на місці форми.
+  Причина суто практична: це єдиний надійний спосіб порахувати
+  конверсію в GA4 як перегляд сторінки, без залежності від подій.
+
+  noindex обовʼязково — інакше вона потрапить у видачу і люди
+  будуть заходити на неї з пошуку замість головної.
+-->
+<Base
+  title="Заявку прийнято"
+  description="Дякуємо за звернення, ми звʼяжемося найближчим часом."
+  noindex={true}
+>
+  <section class="ty">
+    <h1>Заявку прийнято</h1>
+    <p>Передзвоню протягом 15 хвилин у робочий час.</p>
+    <p class="ty__hint">Якщо справа термінова — швидше зателефонувати:</p>
+    <a class="ty__cta" href={telHref(phone)} data-cta="thanks">{formatPhone(phone)}</a>
+    <a class="ty__back" href="/">На головну</a>
+  </section>
+</Base>
+
+<style>
+  .ty { padding: 4rem 1rem; display: grid; gap: 0.9rem; }
+  .ty h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.2rem); }
+  .ty p { margin: 0; font-size: 1rem; }
+  .ty__hint { color: var(--muted); font-size: 0.95rem !important; }
+  .ty__cta {
+    justify-self: start;
+    min-height: 56px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 1.25rem;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .ty__back { color: var(--accent); font-size: 0.95rem; justify-self: start; }
+</style>

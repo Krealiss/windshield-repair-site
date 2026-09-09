@@ -1,0 +1,117 @@
+---
+import type { SiteData } from '../lib/site';
+
+interface Props {
+  site: SiteData;
+  url: string;
+  isMobilePage?: boolean;
+}
+
+const { site, url, isMobilePage = false } = Astro.props;
+const { contacts, coverage, services, reviews, faq } = site;
+
+const DAY_MAP: Record<string, string> = {
+  'Понеділок': 'Monday',
+  'Вівторок': 'Tuesday',
+  'Середа': 'Wednesday',
+  'Четвер': 'Thursday',
+  "П'ятниця": 'Friday',
+  'Субота': 'Saturday',
+  'Неділя': 'Sunday',
+};
+
+// ── основна сутність ──────────────────────────────────────
+const business: Record<string, unknown> = {
+  '@type': 'AutoRepair',
+  '@id': `${Astro.site}#business`,
+  name: 'Ремонт лобового скла',
+  telephone: contacts.phone_main, // у schema завжди реальний, не трекінговий
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: contacts.address,
+    addressCountry: 'UA',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: contacts.lat,
+    longitude: contacts.lng,
+  },
+  url: Astro.site?.toString(),
+  priceRange: services.length
+    ? `₴${Math.min(...services.map((s) => s.price_from))}–${Math.max(
+        ...services.map((s) => s.price_from)
+      )}`
+    : undefined,
+};
+
+if (contacts.hours.length) {
+  business.openingHoursSpecification = contacts.hours
+    .filter((h) => !h.closed && h.from && h.to)
+    .map((h) => ({
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: DAY_MAP[h.day] ?? h.day,
+      opens: h.from,
+      closes: h.to,
+    }));
+}
+
+// Зона виїзду — саме тут, а не в адресі
+if (coverage.areas.length) {
+  business.areaServed = coverage.areas.map((a) => ({ '@type': 'Place', name: a }));
+}
+
+// Агрегований рейтинг тільки якщо відгуків достатньо.
+// Google знімає розмітку за фейкові або поодинокі оцінки.
+if (reviews.length >= 3) {
+  const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+  business.aggregateRating = {
+    '@type': 'AggregateRating',
+    ratingValue: avg.toFixed(1),
+    reviewCount: reviews.length,
+    bestRating: 5,
+  };
+}
+
+// ── послуги ───────────────────────────────────────────────
+const serviceNodes = services.map((s) => ({
+  '@type': 'Service',
+  name: s.title,
+  provider: { '@id': `${Astro.site}#business` },
+  ...(coverage.areas.length && {
+    areaServed: coverage.areas.map((a) => ({ '@type': 'Place', name: a })),
+  }),
+  offers: {
+    '@type': 'Offer',
+    price: s.price_from,
+    priceCurrency: 'UAH',
+    priceSpecification: {
+      '@type': 'PriceSpecification',
+      minPrice: s.price_from,
+      priceCurrency: 'UAH',
+    },
+  },
+}));
+
+// ── FAQ: тільки на головній, щоб не дублювати між сторінками ──
+const faqItems = faq.filter((f) => f.in_schema);
+const faqNode =
+  !isMobilePage && faqItems.length
+    ? {
+        '@type': 'FAQPage',
+        mainEntity: faqItems.map((f) => ({
+          '@type': 'Question',
+          name: f.question,
+          acceptedAnswer: { '@type': 'Answer', text: f.answer },
+        })),
+      }
+    : null;
+
+const graph = [business, ...serviceNodes, ...(faqNode ? [faqNode] : [])];
+const jsonLd = { '@context': 'https://schema.org', '@graph': graph };
+---
+
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(jsonLd)}
+/>
+<link rel="canonical" href={url} />

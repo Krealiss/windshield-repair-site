@@ -1,0 +1,16 @@
+# Нормалізація кінців рядків.
+#
+# Причина конкретна: контент правлять із трьох місць — редактор на Windows,
+# веб-інтерфейс GitHub і Sveltia CMS. Без цього файлу той самий YAML
+# комітиться то з CRLF, то з LF, і кожна правка виглядає як зміна всього файлу.
+* text=auto eol=lf
+
+# Бінарні файли не чіпати
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

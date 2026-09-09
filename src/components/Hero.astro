@@ -1,0 +1,93 @@
+---
+import { formatPhone, telHref } from '../lib/format';
+
+interface Props {
+  h1: string;
+  subtitle?: string;
+  phone: string;
+  address: string;
+  guarantee?: string;
+}
+
+const { h1, subtitle, phone, address, guarantee } = Astro.props;
+---
+
+<!--
+  Перший екран.
+
+  Правило: жодного зовнішнього запиту. Ні шрифтів із CDN, ні іконок,
+  ні фонового зображення. Усе, що потрібно для LCP, приходить
+  першим HTML-пакетом.
+
+  Кнопка дзвінка тут — не «дізнатися більше» і не «залишити заявку».
+  Ціль сайту — дзвінки, тож головна дія одна.
+-->
+<section class="hero">
+  <h1 class="hero__title">{h1}</h1>
+
+  {subtitle && <p class="hero__sub">{subtitle}</p>}
+
+  <a class="hero__cta" href={telHref(phone)} data-cta="hero">
+    {formatPhone(phone)}
+  </a>
+
+  <p class="hero__meta">
+    <span>{address}</span>
+    {guarantee && <><span aria-hidden="true"> · </span><span>{guarantee}</span></>}
+  </p>
+
+  <!-- Сентинел для sticky-панелі: поки він у полі зору, панель прихована -->
+  <div id="sticky-sentinel" aria-hidden="true"></div>
+</section>
+
+<style>
+  .hero {
+    padding: 2rem 1rem 1.5rem;
+    /* Мінімальна висота, а не 100vh: на мобільному 100vh рахує
+       висоту без адресного рядка і контент стрибає при скролі */
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .hero__title {
+    margin: 0;
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .hero__sub {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    color: var(--muted, #4b5563);
+    max-width: 34ch;
+  }
+
+  .hero__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    padding: 0 1.25rem;
+    border-radius: 12px;
+    background: var(--accent, #1d4ed8);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    justify-self: start;
+  }
+
+  .hero__meta {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--muted, #6b7280);
+  }
+
+  @media (min-width: 768px) {
+    .hero { padding: 3.5rem 2rem 2.5rem; }
+    .hero__sub { max-width: 46ch; font-size: 1.15rem; }
+  }
+</style>

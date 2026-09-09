@@ -1,0 +1,71 @@
+---
+import Base from '../layouts/Base.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+import Analytics from '../components/Analytics.astro';
+import StickyCall from '../components/StickyCall.astro';
+import Hero from '../components/Hero.astro';
+import Prices from '../components/Prices.astro';
+import RepairVsReplace from '../components/RepairVsReplace.astro';
+import Process from '../components/Process.astro';
+import Gallery from '../components/Gallery.astro';
+import Reviews from '../components/Reviews.astro';
+import Faq from '../components/Faq.astro';
+import LeadForm from '../components/LeadForm.astro';
+import Contacts from '../components/Contacts.astro';
+import { loadSite } from '../lib/site';
+
+const site = await loadSite('home');
+const { contacts, meta, phone, show } = site;
+const url = new URL('/', Astro.site).toString();
+---
+
+<Base title={meta.seo_title} description={meta.seo_description}>
+  <SchemaOrg slot="head" site={site} url={url} />
+  <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
+
+  <!--
+    Порядок блоків не випадковий. Він відповідає порядку питань
+    у голові людини зі сколом:
+
+    1. Ви це робите і де ви?        → Hero
+    2. Скільки коштує?              → Prices
+    3. А в мене взагалі ремонтується?→ RepairVsReplace
+    4. Як це буде відбуватися?      → Process
+    5. Покажіть результат           → Gallery
+    6. Вам можна вірити?            → Reviews
+    7. Дрібні сумніви               → Faq
+    8. Добре, як звʼязатися         → LeadForm + Contacts
+
+    Ціни стоять другими навмисно. Прихована ціна — головна причина,
+    чому людина закриває вкладку і дзвонить конкуренту.
+  -->
+
+  <Hero
+    h1={meta.h1}
+    subtitle={meta.hero_subtitle}
+    phone={phone}
+    address={contacts.address}
+    guarantee={meta.guarantee}
+  />
+
+  <Prices services={site.services} phone={phone} />
+
+  <RepairVsReplace />
+
+  <Process coverage={site.coverage} address={contacts.address} />
+
+  {show.gallery && <Gallery pairs={site.gallery} />}
+
+  {show.reviews && <Reviews reviews={site.reviews} />}
+
+  <!-- Маркер глибини скролу для аналітики -->
+  <div id="scroll-depth-75" aria-hidden="true"></div>
+
+  <Faq items={site.faq} />
+
+  <LeadForm placement="form_home" />
+
+  <Contacts contacts={contacts} showHours={show.hours} />
+
+  <StickyCall phone={phone} viber={contacts.viber} telegram={contacts.telegram} />
+</Base>

@@ -1,0 +1,96 @@
+---
+import { formatPhone, telHref, viberHref, telegramHref } from '../lib/format';
+
+interface Props {
+  contacts: {
+    phone_main: string;
+    phone_tracking?: string;
+    viber?: string;
+    telegram?: string;
+    address: string;
+    lat: number;
+    lng: number;
+    hours: Array<{ day: string; from?: string; to?: string; closed: boolean }>;
+  };
+  showHours: boolean;
+}
+const { contacts, showHours } = Astro.props;
+const phone = contacts.phone_tracking || contacts.phone_main;
+
+// Статичне посилання на карти замість вбудованого iframe:
+// Google Maps embed тягне ~900 КБ скриптів і псує LCP заради
+// картинки, на яку майже ніхто не натискає. Посилання відкриває
+// рідний застосунок з готовим маршрутом — це те, що людині треба.
+const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat},${contacts.lng}`;
+---
+
+<section class="cnt" id="contacts">
+  <h2>Контакти</h2>
+
+  <a class="cnt__phone" href={telHref(phone)} data-cta="contacts">{formatPhone(phone)}</a>
+
+  <div class="cnt__msg">
+    {contacts.viber && (
+      <a href={viberHref(contacts.viber)} data-cta="contacts">Viber</a>
+    )}
+    {contacts.telegram && (
+      <a href={telegramHref(contacts.telegram)} data-cta="contacts">Telegram</a>
+    )}
+  </div>
+
+  <p class="cnt__addr">
+    {contacts.address}
+    <a href={mapsUrl} target="_blank" rel="noopener">Прокласти маршрут</a>
+  </p>
+
+  {showHours && (
+    <table class="cnt__hours">
+      <tbody>
+        {contacts.hours.map((h) => (
+          <tr>
+            <th scope="row">{h.day}</th>
+            <td>{h.closed ? 'Вихідний' : `${h.from}–${h.to}`}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</section>
+
+<style>
+  .cnt { padding: 2rem 1rem 3rem; display: grid; gap: 0.85rem; }
+  .cnt h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+
+  .cnt__phone {
+    justify-self: start;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .cnt__msg { display: flex; gap: 0.5rem; }
+  .cnt__msg a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+
+  .cnt__addr { margin: 0; display: grid; gap: 0.25rem; font-size: 0.95rem; }
+  .cnt__addr a { color: var(--accent); justify-self: start; }
+
+  .cnt__hours { border-collapse: collapse; font-size: 0.9rem; }
+  .cnt__hours th { text-align: left; font-weight: 500; padding: 0.2rem 1.5rem 0.2rem 0; }
+  .cnt__hours td { color: var(--muted); }
+
+  @media (min-width: 768px) { .cnt { padding: 3rem 2rem 4rem; } }
+</style>

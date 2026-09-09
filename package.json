@@ -1,0 +1,21 @@
+{
+  "name": "windshield-repair-site",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "validate": "node scripts/validate-content.mjs",
+    "build": "node scripts/validate-content.mjs --prod && astro build",
+    "build:preview": "node scripts/validate-content.mjs && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.6.0",
+    "@astrojs/sitemap": "^3.3.0",
+    "sharp": "^0.34.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.14.0"
+  }
+}

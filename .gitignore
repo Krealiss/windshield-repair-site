@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+.wrangler/
+.env
+.env.*
+.DS_Store
+.lighthouseci/
+
+# Локальні налаштування інструментів розробника — не спільні
+.claude/settings.local.json

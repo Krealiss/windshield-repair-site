@@ -1,0 +1,108 @@
+---
+/**
+ * «Ремонт чи заміна» — найважливіший текстовий блок сайту.
+ *
+ * Він робить дві речі одночасно:
+ *   1. Продає ремонт проти заміни (дешевше, швидше, заводське скло)
+ *   2. Чесно каже, коли ремонт неможливий
+ *
+ * Другий пункт виглядає як втрата клієнтів, але працює навпаки:
+ * людина, яка прочитала обмеження і все одно подзвонила, вже
+ * прогріта. А людина, якій пообіцяли неможливе, приїде, отримає
+ * відмову і напише негативний відгук.
+ *
+ * Тексти захардкожені навмисно — це позиціювання, а не контент.
+ * Власник не має правити їх на ходу.
+ */
+
+const advantages = [
+  {
+    title: 'Дешевше в кілька разів',
+    text: 'Ремонт сколу коштує значно менше за нове скло з роботою.',
+  },
+  {
+    title: 'Заводське скло лишається',
+    text: 'Не порушується заводська герметизація — після заміни по периметру інколи з’являються протікання і шум.',
+  },
+  {
+    title: 'Швидше',
+    text: 'Ремонт — до години. Заміна забирає півдня і потребує часу на застигання клею.',
+  },
+  {
+    title: 'Скол не піде далі',
+    text: 'Головна задача — зупинити тріщину, поки вона не пішла через усе скло від вібрації чи перепаду температур.',
+  },
+];
+
+const limits = [
+  'Тріщина починається від краю скла',
+  'Пошкодження в зоні прямого огляду водія',
+  'Скол більший за 5-гривневу монету',
+  'Скол давній, забився брудом і вологою',
+  'Пошкоджений внутрішній шар триплексу',
+];
+---
+
+<section class="rvr">
+  <h2>Ремонт замість заміни</h2>
+
+  <ul class="rvr__adv">
+    {advantages.map((a) => (
+      <li>
+        <strong>{a.title}</strong>
+        <span>{a.text}</span>
+      </li>
+    ))}
+  </ul>
+
+  <div class="rvr__limits">
+    <h3>Коли ремонт не допоможе</h3>
+    <ul>
+      {limits.map((l) => <li>{l}</li>)}
+    </ul>
+    <p class="rvr__note">
+      Якщо ваш випадок у цьому списку — скажу відразу, і ви не витратите час
+      на дорогу. Надішліть фото, і я відповім чесно.
+    </p>
+  </div>
+
+  <p class="rvr__expect">
+    <strong>Про результат чесно:</strong> скол не зникає безслідно. Залишається
+    ледь помітна точка, яку не видно з водійського місця. Задача ремонту —
+    зупинити руйнування і зберегти скло, а не зробити його новим.
+  </p>
+</section>
+
+<style>
+  .rvr { padding: 2rem 1rem; display: grid; gap: 1.25rem; }
+  .rvr h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .rvr h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+
+  .rvr__adv { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.85rem; }
+  .rvr__adv li { display: grid; gap: 0.15rem; }
+  .rvr__adv strong { font-size: 1rem; }
+  .rvr__adv span { font-size: 0.95rem; line-height: 1.5; color: var(--muted, #4b5563); }
+
+  .rvr__limits {
+    padding: 1rem;
+    border-radius: 12px;
+    background: var(--surface-alt, #f9fafb);
+    border: 1px solid var(--border, #e5e7eb);
+  }
+  .rvr__limits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
+  .rvr__limits li { font-size: 0.95rem; line-height: 1.45; }
+  .rvr__note { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--muted, #4b5563); }
+
+  .rvr__expect {
+    margin: 0;
+    padding: 0.9rem 1rem;
+    border-left: 3px solid var(--accent, #1d4ed8);
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  @media (min-width: 768px) {
+    .rvr { padding: 3rem 2rem; }
+    .rvr__adv { grid-template-columns: 1fr 1fr; gap: 1.25rem 2rem; }
+  }
+</style>

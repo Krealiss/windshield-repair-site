@@ -1,0 +1,15 @@
+phone_main: "+380671234567"
+phone_tracking: ""
+viber: "+380671234567"
+telegram: "remont_skla"
+address: "вул. Хрещатик 12, Київ"
+lat: 50.4472
+lng: 30.5223
+hours:
+  - { day: "Понеділок", from: "09:00", to: "19:00", closed: false }
+  - { day: "Вівторок",  from: "09:00", to: "19:00", closed: false }
+  - { day: "Середа",    from: "09:00", to: "19:00", closed: false }
+  - { day: "Четвер",    from: "09:00", to: "19:00", closed: false }
+  - { day: "П'ятниця",  from: "09:00", to: "19:00", closed: false }
+  - { day: "Субота",    from: "10:00", to: "16:00", closed: false }
+  - { day: "Неділя",    from: "",      to: "",      closed: true }

@@ -1,0 +1,68 @@
+---
+interface Props {
+  items: Array<{ question: string; answer: string }>;
+}
+const { items } = Astro.props;
+---
+
+<!--
+  Нативний <details>, а не самописний акордеон.
+
+  Нуль JS, працює без гідратації, доступний з клавіатури і читалок
+  «з коробки», і — важливо для SEO — вміст індексується навіть у
+  згорнутому стані. Самописна версія втратила б усі чотири пункти
+  заради анімації, якої ніхто не помітить.
+-->
+<section class="faq">
+  <h2>Питання і відповіді</h2>
+
+  <div class="faq__list">
+    {items.map((f) => (
+      <details class="faq__item">
+        <summary>{f.question}</summary>
+        <p>{f.answer}</p>
+      </details>
+    ))}
+  </div>
+</section>
+
+<style>
+  .faq { padding: 2rem 1rem; display: grid; gap: 0.75rem; }
+  .faq h2 { margin: 0 0 0.25rem; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+
+  .faq__list { display: grid; }
+
+  .faq__item { border-bottom: 1px solid var(--border); }
+
+  .faq__item summary {
+    /* 48px висоти для пальця */
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 2rem 0.75rem 0;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    list-style: none;
+  }
+  .faq__item summary::-webkit-details-marker { display: none; }
+
+  .faq__item summary::after {
+    content: '+';
+    position: absolute;
+    right: 0.25rem;
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .faq__item[open] summary::after { content: '−'; }
+
+  .faq__item p {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  @media (min-width: 768px) { .faq { padding: 3rem 2rem; } }
+</style>

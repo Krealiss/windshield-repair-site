@@ -1,0 +1,88 @@
+---
+import { Image } from 'astro:assets';
+import { galleryCaption } from '../lib/format';
+
+interface Props {
+  pairs: Array<{
+    before: ImageMetadata;
+    after: ImageMetadata;
+    damage_type: string;
+    size_mm: number;
+    duration_min?: number;
+  }>;
+}
+const { pairs } = Astro.props;
+---
+
+<!--
+  Пари поруч, а не слайдер із перетяжкою.
+
+  Слайдер виглядає ефектніше, але потребує дії: людина має здогадатися
+  потягнути роздільник. Частина не здогадається і побачить лише
+  фото «до» — тобто найгіршу версію вашої роботи. Дві картинки поруч
+  читаються за пів секунди без жодної взаємодії і без JS.
+
+  Компонент рендериться тільки якщо пар щонайменше чотири — це
+  вирішується в site.ts, сюди приходять уже перевірені дані.
+-->
+<section class="gal">
+  <h2>Результати робіт</h2>
+
+  <ul class="gal__list">
+    {pairs.map((p) => (
+      <li class="gal__item">
+        <figure class="gal__pair">
+          <div class="gal__side">
+            <Image src={p.before} alt="Скол до ремонту" widths={[400, 800]} loading="lazy" />
+            <span class="gal__label">До</span>
+          </div>
+          <div class="gal__side">
+            <Image src={p.after} alt="Те саме місце після ремонту" widths={[400, 800]} loading="lazy" />
+            <span class="gal__label">Після</span>
+          </div>
+          <figcaption>{galleryCaption(p.damage_type, p.size_mm, p.duration_min)}</figcaption>
+        </figure>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .gal { padding: 2rem 1rem; display: grid; gap: 1rem; }
+  .gal h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+
+  .gal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem; }
+
+  .gal__pair {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .gal__side { position: relative; }
+  .gal__side img { border-radius: 10px; aspect-ratio: 3 / 4; object-fit: cover; }
+
+  .gal__label {
+    position: absolute;
+    left: 0.5rem;
+    top: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    background: rgba(17, 24, 39, 0.75);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .gal__pair figcaption {
+    grid-column: 1 / -1;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  @media (min-width: 768px) {
+    .gal { padding: 3rem 2rem; }
+    .gal__list { grid-template-columns: 1fr 1fr; gap: 1.75rem; }
+  }
+</style>

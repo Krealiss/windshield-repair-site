@@ -1,0 +1,118 @@
+---
+import Base from '../layouts/Base.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+import Analytics from '../components/Analytics.astro';
+import StickyCall from '../components/StickyCall.astro';
+import Prices from '../components/Prices.astro';
+import LeadForm from '../components/LeadForm.astro';
+import Contacts from '../components/Contacts.astro';
+import { loadSite } from '../lib/site';
+import { formatPhone, telHref } from '../lib/format';
+
+const site = await loadSite('mobile');
+const { contacts, coverage, meta, phone, show } = site;
+const url = new URL('/vyizdnyi-remont/', Astro.site).toString();
+
+const feeText =
+  coverage.travel_fee === 0
+    ? 'Виїзд безкоштовний'
+    : `Виїзд — ${coverage.travel_fee} грн`;
+---
+
+<!--
+  Друга сторінка існує не «щоб було», а під окремий пошуковий намір:
+  «виїзний ремонт лобового скла», «ремонт скла з виїздом».
+  У неї власний title, власний H1 і власна конверсійна воронка.
+
+  FAQ-розмітка тут свідомо не дублюється (isMobilePage=true) —
+  два FAQPage на одному домені з тими самими питаннями Google
+  трактує як дубль і може зняти сніпет з обох.
+-->
+<Base title={meta.seo_title} description={meta.seo_description}>
+  <SchemaOrg slot="head" site={site} url={url} isMobilePage={true} />
+  <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
+
+  <section class="mh">
+    <h1>{meta.h1}</h1>
+    {meta.hero_subtitle && <p class="mh__sub">{meta.hero_subtitle}</p>}
+    <a class="mh__cta" href={telHref(phone)} data-cta="hero_mobile">{formatPhone(phone)}</a>
+    <p class="mh__fee">{feeText}</p>
+    <div id="sticky-sentinel" aria-hidden="true"></div>
+  </section>
+
+  {show.coverage && (
+    <section class="area">
+      <h2>Куди виїжджаємо</h2>
+      <ul class="area__list">
+        {coverage.areas.map((a) => <li>{a}</li>)}
+      </ul>
+      {coverage.radius_km && (
+        <p class="area__note">Радіус виїзду — до {coverage.radius_km} км від міста.</p>
+      )}
+      <p class="area__note">
+        Немає вашого району в списку? Зателефонуйте — часто можемо домовитись.
+      </p>
+    </section>
+  )}
+
+  {coverage.conditions && (
+    <section class="cond">
+      <h2>Умови роботи на місці</h2>
+      <p>{coverage.conditions}</p>
+      <p class="cond__note">
+        Полімер не застигає на морозі й не тримається на мокрому склі. Якщо
+        погода не дозволяє — скажу відразу і запропоную приїхати до нас.
+      </p>
+    </section>
+  )}
+
+  <Prices services={site.services} phone={phone} />
+
+  <div id="scroll-depth-75" aria-hidden="true"></div>
+
+  <LeadForm placement="form_mobile" />
+
+  <Contacts contacts={contacts} showHours={show.hours} />
+
+  <StickyCall phone={phone} viber={contacts.viber} telegram={contacts.telegram} />
+</Base>
+
+<style>
+  .mh { padding: 2rem 1rem 1.5rem; display: grid; gap: 0.9rem; }
+  .mh h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.4rem); line-height: 1.15; text-wrap: balance; }
+  .mh__sub { margin: 0; font-size: 1.05rem; color: var(--muted); max-width: 34ch; }
+  .mh__cta {
+    justify-self: start;
+    min-height: 56px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 1.25rem;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .mh__fee { margin: 0; font-size: 0.9rem; color: var(--muted); }
+
+  .area, .cond { padding: 2rem 1rem; display: grid; gap: 0.75rem; }
+  .area h2, .cond h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+  .area__list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+  }
+  .area__list li {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.9rem;
+  }
+  .area__note, .cond__note { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .cond p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
+
+  @media (min-width: 768px) {
+    .mh { padding: 3.5rem 2rem 2.5rem; }
+    .area, .cond { padding: 3rem 2rem; }
+  }
+</style>

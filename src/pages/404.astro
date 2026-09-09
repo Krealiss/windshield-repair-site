@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+import { loadSite } from '../lib/site';
+import { formatPhone, telHref } from '../lib/format';
+
+const site = await loadSite('home');
+---
+
+<Base title="Сторінку не знайдено" description="Такої сторінки немає." noindex={true}>
+  <section class="nf">
+    <h1>Такої сторінки немає</h1>
+    <p>Можливо, посилання застаріло. Ось що є:</p>
+    <ul>
+      <li><a href="/">Ремонт сколів і тріщин</a></li>
+      <li><a href="/vyizdnyi-remont/">Виїзний ремонт</a></li>
+    </ul>
+    <p class="nf__hint">Або просто зателефонуйте:</p>
+    <a class="nf__cta" href={telHref(site.phone)} data-cta="404">{formatPhone(site.phone)}</a>
+  </section>
+</Base>
+
+<style>
+  .nf { padding: 4rem 1rem; display: grid; gap: 0.85rem; }
+  .nf h1 { margin: 0; font-size: clamp(1.5rem, 6vw, 2rem); }
+  .nf p { margin: 0; }
+  .nf ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; }
+  .nf a { color: var(--accent); }
+  .nf__hint { color: var(--muted); font-size: 0.95rem; }
+  .nf__cta {
+    justify-self: start; min-height: 52px;
+    display: inline-flex; align-items: center; padding: 0 1.15rem;
+    border-radius: 12px; background: var(--accent);
+    color: #fff !important; font-size: 1.2rem; font-weight: 700; text-decoration: none;
+  }
+</style>

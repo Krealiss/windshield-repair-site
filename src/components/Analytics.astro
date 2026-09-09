@@ -1,0 +1,78 @@
+---
+/**
+ * Уся аналітика конверсій — одним делегованим слухачем на document.
+ *
+ * Чому так, а не onclick на кожній кнопці:
+ * кнопок дзвінка на сторінці 4–5 (перший екран, блок цін, контакти,
+ * sticky-панель). Розкидані обробники неминуче розсинхронізуються, і
+ * одна з кнопок тихо перестане рахуватися. Тут джерело істини одне.
+ *
+ * Скрипт нічого не блокує: GTM вантажиться після load, слухач
+ * навішується одразу і не залежить від того, чи GTM узагалі приїхав.
+ */
+interface Props {
+  gtmId?: string;
+}
+const { gtmId } = Astro.props;
+---
+
+<script>
+  // dataLayer оголошуємо до GTM, щоб події не загубилися при повільній мережі
+  window.dataLayer = window.dataLayer || [];
+
+  const CHANNELS = [
+    { test: (h: string) => h.startsWith('tel:'), event: 'click_phone' },
+    { test: (h: string) => h.startsWith('viber:'), event: 'click_viber' },
+    { test: (h: string) => h.includes('t.me/'), event: 'click_telegram' },
+  ];
+
+  document.addEventListener(
+    'click',
+    (e) => {
+      const link = (e.target as HTMLElement)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!link) return;
+
+      const href = link.getAttribute('href') ?? '';
+      const channel = CHANNELS.find((c) => c.test(href));
+      if (!channel) return;
+
+      window.dataLayer.push({
+        event: channel.event,
+        // Звідки саме натиснули: sticky / hero / prices / contacts
+        cta_placement: link.dataset.cta ?? 'unknown',
+        page_path: location.pathname,
+      });
+    },
+    // capture — щоб подія зафіксувалась навіть якщо перехід миттєвий
+    true
+  );
+
+  // Скрол 75% — одноразово, через IntersectionObserver замість scroll
+  const deep = document.getElementById('scroll-depth-75');
+  if (deep && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      window.dataLayer.push({ event: 'scroll_75', page_path: location.pathname });
+      io.disconnect();
+    });
+    io.observe(deep);
+  }
+</script>
+
+{
+  gtmId && (
+    <script is:inline define:vars={{ gtmId }}>
+      // GTM вантажиться тільки після повного завантаження сторінки.
+      // LCP не має чекати на аналітику.
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const s = document.createElement('script');
+          s.async = true;
+          s.src = `https://www.googletagmanager.com/gtm.js?id=${gtmId}`;
+          document.head.appendChild(s);
+          window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        }, 1200);
+      });
+    </script>
+  )
+}

@@ -1,0 +1,63 @@
+---
+interface Props {
+  reviews: Array<{
+    author: string;
+    text: string;
+    rating: number;
+    date: Date;
+    source?: string;
+  }>;
+}
+const { reviews } = Astro.props;
+
+const fmt = new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' });
+---
+
+<section class="rev">
+  <h2>Відгуки</h2>
+
+  <ul class="rev__list">
+    {reviews.map((r) => (
+      <li class="rev__item">
+        <div class="rev__head">
+          <strong>{r.author}</strong>
+          <span class="rev__stars" aria-label={`Оцінка ${r.rating} з 5`}>
+            {'★'.repeat(r.rating)}<span class="rev__dim">{'★'.repeat(5 - r.rating)}</span>
+          </span>
+        </div>
+        <p class="rev__text">{r.text}</p>
+        <p class="rev__meta">
+          <time datetime={r.date.toISOString()}>{fmt.format(r.date)}</time>
+          {r.source && <><span aria-hidden="true"> · </span>{r.source}</>}
+        </p>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .rev { padding: 2rem 1rem; display: grid; gap: 1rem; }
+  .rev h2 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+
+  .rev__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.85rem; }
+
+  .rev__item {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .rev__head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+  .rev__stars { color: #f59e0b; letter-spacing: 0.05em; white-space: nowrap; }
+  .rev__dim { color: var(--border); }
+
+  .rev__text { margin: 0; font-size: 0.95rem; line-height: 1.55; }
+  .rev__meta { margin: 0; font-size: 0.8rem; color: var(--muted); }
+
+  @media (min-width: 768px) {
+    .rev { padding: 3rem 2rem; }
+    .rev__list { grid-template-columns: 1fr 1fr; }
+  }
+</style>
