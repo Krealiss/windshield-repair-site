@@ -1,0 +1,18 @@
+# Зразок. Скопіюйте у файл .dev.vars і підставте свої значення.
+#
+#     cp .dev.vars.example .dev.vars
+#
+# .dev.vars у git не потрапляє (див. .gitignore) — і не має потрапити:
+# репозиторій публічний, а з цим токеном будь-хто зможе писати від
+# імені вашого бота і читати заявки клієнтів.
+#
+# wrangler pages dev підхоплює цей файл сам, передавати нічого не треба.
+# Ті самі дві змінні в продакшні задаються в Cloudflare Pages →
+# Settings → Environment variables, обидві типу Secret.
+
+# Видає @BotFather після /newbot. Виглядає як 1234567890:AA...
+TELEGRAM_BOT_TOKEN=
+
+# Куди бот надсилатиме заявки. Дізнатися: напишіть боту будь-що
+# в Telegram, потім запустіть `npm run telegram:chat-id`
+TELEGRAM_CHAT_ID=

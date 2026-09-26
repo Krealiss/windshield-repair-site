@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "validate": "node scripts/validate-content.mjs",
+    "telegram:chat-id": "node scripts/telegram-chat-id.mjs",
+    "telegram:test": "node scripts/telegram-chat-id.mjs --test",
     "build": "node scripts/validate-content.mjs --prod && astro build",
     "build:preview": "node scripts/validate-content.mjs && astro build",
     "preview": "astro preview"
