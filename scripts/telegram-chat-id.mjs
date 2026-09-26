@@ -48,22 +48,33 @@ if (!token) {
 
 const api = (method) => `https://api.telegram.org/bot${token}/${method}`;
 
-async function call(method) {
+/** Сирий виклик: повертає {ok, result, why} і нічого не вирішує за нас */
+async function raw(method, init) {
   let res;
   try {
-    res = await fetch(api(method));
+    res = await fetch(api(method), init);
   } catch {
-    die('Не вдалося зв\'язатися з api.telegram.org. Перевірте інтернет.');
+    die("Не вдалося зв'язатися з api.telegram.org. Перевірте інтернет.");
   }
   const data = await res.json().catch(() => null);
-  if (!data?.ok) {
-    const why = data?.description ?? `HTTP ${res.status}`;
-    if (res.status === 401) {
-      die(`Telegram відхилив токен (${why}).\n   Скопіюйте його з @BotFather ще раз — цілком, без пробілів.`);
+  return {
+    ok: Boolean(data?.ok),
+    status: res.status,
+    result: data?.result,
+    // опис від Telegram буває довгим — згортаємо в один рядок
+    why: (data?.description ?? `HTTP ${res.status}`).replace(/\s+/g, ' ').trim(),
+  };
+}
+
+async function call(method, init) {
+  const r = await raw(method, init);
+  if (!r.ok) {
+    if (r.status === 401) {
+      die(`Telegram відхилив токен (${r.why}).\n   Скопіюйте його з @BotFather ще раз — цілком, без пробілів.`);
     }
-    die(`Telegram відповів помилкою: ${why}`);
+    die(`Telegram відповів помилкою: ${r.why}`);
   }
-  return data.result;
+  return r.result;
 }
 
 // ── 1. Чи живий бот ───────────────────────────────────────
@@ -75,7 +86,7 @@ if (process.argv.includes('--test')) {
   if (!env.TELEGRAM_CHAT_ID) {
     die(`У ${FILE} порожній TELEGRAM_CHAT_ID. Спершу запустіть команду без --test.`);
   }
-  const res = await fetch(api('sendMessage'), {
+  const r = await raw('sendMessage', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -86,10 +97,9 @@ if (process.argv.includes('--test')) {
         'Саме так виглядатимуть заявки з сайту.',
     }),
   });
-  const data = await res.json().catch(() => null);
-  if (!data?.ok) {
+  if (!r.ok) {
     die(
-      `Не вдалося надіслати: ${data?.description ?? `HTTP ${res.status}`}\n` +
+      `Не вдалося надіслати: ${r.why}\n` +
         '   Найчастіша причина — бот не знає цього чату.\n' +
         `   Напишіть @${me.username} у Telegram і спробуйте знову.`
     );
@@ -99,7 +109,52 @@ if (process.argv.includes('--test')) {
 }
 
 // ── 3. Хто йому писав ─────────────────────────────────────
-const updates = await call('getUpdates');
+//
+// Telegram не дозволяє getUpdates, поки в бота зареєстрований webhook:
+// два способи отримувати оновлення виключають один одного. Це означає,
+// що бот уже десь використовується — і мовчки зносити той webhook не
+// можна, бо разом із ним зупиниться те, що на ньому працює.
+let updates;
+{
+  const r = await raw('getUpdates');
+  if (r.ok) {
+    updates = r.result;
+  } else if (/webhook is active/i.test(r.why)) {
+    const info = await call('getWebhookInfo');
+    const addr = info?.url || '(адреса не вказана)';
+
+    if (!process.argv.includes('--drop-webhook')) {
+      die(
+        `У бота @${me.username} уже працює webhook:\n` +
+          `      ${addr}\n` +
+          (info?.pending_update_count
+            ? `      у черзі повідомлень: ${info.pending_update_count}\n`
+            : '') +
+          '\n   Поки він активний, дізнатися chat_id цим способом не вийде.\n' +
+          '   Два виходи:\n\n' +
+          '   1) Зробіть ОКРЕМОГО бота для сайту (@BotFather → /newbot).\n' +
+          '      Найчистіший варіант: те, що працює на цьому webhook,\n' +
+          '      лишиться неторканим.\n\n' +
+          '   2) Якщо цей webhook вам більше не потрібен — зніміть його:\n' +
+          '      npm run telegram:chat-id -- --drop-webhook\n' +
+          '      Увага: усе, що зараз отримує оновлення за цією адресою,\n' +
+          '      після цього працювати перестане.'
+      );
+    }
+
+    console.log(`\n⚠  Знімаю webhook: ${addr}`);
+    // drop_pending_updates не ставимо: якщо в черзі є повідомлення,
+    // саме вони й потрібні, щоб побачити chat_id
+    await call('deleteWebhook');
+    console.log('   Готово.');
+
+    const again = await raw('getUpdates');
+    if (!again.ok) die(`Telegram відповів помилкою: ${again.why}`);
+    updates = again.result;
+  } else {
+    die(`Telegram відповів помилкою: ${r.why}`);
+  }
+}
 
 const chats = new Map();
 for (const u of updates) {
