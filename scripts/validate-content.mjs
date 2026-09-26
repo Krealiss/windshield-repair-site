@@ -218,16 +218,6 @@ const PLACEHOLDERS = [
     what: 'домен із шаблону в рядку Sitemap: — пошуковики не знайдуть карту сайту',
   },
   {
-    file: 'public/admin/config.yml',
-    find: 'auth.example.workers.dev',
-    what: 'адреса OAuth-воркера з шаблону — вхід у CMS не спрацює',
-  },
-  {
-    file: 'public/admin/config.yml',
-    find: 'OWNER/REPO',
-    what: 'репозиторій не вказано — CMS не знатиме, куди зберігати правки',
-  },
-  {
     file: 'src/content/contacts.yml',
     find: '+380671234567',
     what: 'демонстраційний телефон — усі кнопки дзвінка ведуть не власнику',

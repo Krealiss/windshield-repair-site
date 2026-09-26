@@ -23,7 +23,6 @@ npm run build        # продакшн: падає, якщо контент н�
 |---|---|
 | `astro.config.mjs` | `site:` — реальний домен |
 | `public/robots.txt` | адреса sitemap |
-| `public/admin/config.yml` | `base_url:` OAuth-воркера |
 | `src/content/*.yml` | реальні контакти, ціни, тексти |
 | `src/pages/polityka-konfidentsiynosti.astro` | `OPERATOR` — назва ФОП або ТОВ і РНОКПП |
 
@@ -132,16 +131,7 @@ Cloudflare Pages, гілка `main`:
 
 `public/_headers` — CSP, HSTS, `nosniff`, безстроковий кеш для `/_astro/*`.
 Файл прокоментований: там написано, чому в `script-src` є `'unsafe-inline'`
-(Astro вбудовує скрипти в HTML, GTM додає теги інлайном) і чому CSP знято
-саме для `/admin/`.
-
-### OAuth для CMS
-
-Sveltia потребує проксі для входу через GitHub. Розгорніть
-`sveltia-cms-auth` окремим воркером і вкажіть його URL у `base_url`.
-
-Версія самої CMS у `public/admin/index.html` зафіксована і захищена
-`integrity`. Оновлення — свідома дія: підняти номер і перерахувати хеш.
+(Astro вбудовує скрипти в HTML, GTM додає теги інлайном).
 
 ---
 
