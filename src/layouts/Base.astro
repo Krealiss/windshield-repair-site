@@ -31,8 +31,7 @@ const year = new Date().getFullYear();
          який svg на домашній екран не бере. -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#1d4ed8" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#1d4ed8" />
 
     <!--
       Посилання на сайт кидають у Viber і Telegram — там прев'ю з картинкою
@@ -111,6 +110,17 @@ const year = new Date().getFullYear();
 
       :root {
         /*
+          Сайт світлий завжди — незалежно від системної теми.
+
+          Цей рядок не косметичний. Без нього браузер у людини з темною
+          системною темою малює СВОЇ елементи форми темними: поле
+          телефона, кнопку вибору файлу, прапорець згоди і смугу
+          прокрутки. На білій сторінці це виглядає як поламана верстка.
+          Тут ми прямо кажемо: сторінка світла, малюй відповідно.
+        */
+        color-scheme: light;
+
+        /*
           Кожен колір сайту живе тут і тільки тут.
           Правило просте: у компонентах не має бути жодного #rrggbb —
           інакше однакові на вигляд відтінки розповзаються по файлах
@@ -179,63 +189,6 @@ const year = new Date().getFullYear();
         --section-y: clamp(2.25rem, 6vw, 4rem);
       }
 
-      /*
-        Темна тема — за системним налаштуванням, без перемикача.
-
-        Чому без перемикача: він потребує скрипта, який виконується
-        ДО першого малювання (інакше сторінка блимає світлим), плюс
-        збереження вибору. Браузер і так знає, що людині зручніше,
-        і повідомляє це. Перемикач можна додати згодом — уся палітра
-        для цього вже є.
-
-        Тут перевизначаються тільки токени. Якщо колись доведеться
-        правити колір у компоненті — це знак, що бракує токена.
-      */
-      @media (prefers-color-scheme: dark) {
-        :root {
-          color-scheme: dark;
-
-          /* Акцент світлішає: #1d4ed8 на темному тлі — майже чорна пляма,
-             а кнопка мусить читатися як кнопка. Тому й текст поверх
-             акценту стає темним, а не білим. */
-          --accent: #60a5fa;
-          --accent-strong: #93c0fd;
-          --accent-soft: #16233c;
-          --accent-line: #24345a;
-          --on-accent: #0b1220;
-
-          --text: #e8edf5;
-          --muted: #9fb0c4;
-          --link: #8ab4fc;
-
-          --surface: #0f172a;
-          --surface-alt: #131e33;
-          --border: #24314b;
-          --border-strong: #35486b;
-          --rule: #3b4c6b;
-
-          /* Темна смуга на темній темі мусить бути СВІТЛІШОЮ за сторінку,
-             інакше вона просто зникає */
-          --band-dark-bg: #1b2b48;
-
-          --star: #fbbf24;
-          --star-off: #2b384f;
-          --danger: #fca5a5;
-          --danger-soft: #2a1517;
-
-          --overlay: rgba(2, 6, 16, 0.82);
-
-          --glass-1: #223353;
-          --glass-2: #182741;
-          --glass-3: #101c31;
-          --glass-crack: #94a3b8;
-          --glass-sheen: #cbd5e1;
-          --glass-edge: rgba(255, 255, 255, 0.1);
-
-          --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -16px rgba(0, 0, 0, 0.75);
-          --shadow-up: 0 -8px 24px -18px rgba(0, 0, 0, 0.85);
-        }
-      }
 
       *, *::before, *::after { box-sizing: border-box; }
 
