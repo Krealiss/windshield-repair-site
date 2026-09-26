@@ -7,6 +7,14 @@
  *
  * Помилки (ERROR) блокують продакшн-збірку.
  * Попередження (WARN) не блокують, але означають, що блок не відрендериться.
+ *
+ * Перевіряє тільки те, чого не робить zod:
+ *   — заглушки з шаблону (домен, телефон, адреса, реквізити ФОП)
+ *   — фотографії галереї: чи існує файл, чи правильний шлях, чи достатня ширина
+ *   — пороги показу блоків (галерея від 4 пар, відгуки від 3)
+ *
+ * Решту — типи, обовʼязковість полів, межі значень — описують схеми
+ * в src/content.config.ts і src/lib/site.ts.
  */
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -60,54 +68,7 @@ try {
   /* sharp немає — перевірку ширини пропускаємо */
 }
 
-// ── 1. КОНТАКТИ ───────────────────────────────────────────
-const contacts = await readYaml(join(ROOT, 'contacts.yml'));
-
-if (!contacts) {
-  err('contacts.yml', 'файл відсутній');
-} else {
-  const phone = String(contacts.phone_main ?? '').trim();
-  if (!phone) {
-    err('contacts.phone_main', 'основний телефон порожній — сайт без конверсії');
-  } else if (!/^\+380\d{9}$/.test(phone)) {
-    err('contacts.phone_main', `невірний формат "${phone}", очікується +380XXXXXXXXX`);
-  }
-
-  const track = String(contacts.phone_tracking ?? '').trim();
-  if (track && !/^\+380\d{9}$/.test(track)) {
-    err('contacts.phone_tracking', `невірний формат "${track}"`);
-  }
-
-  if (!String(contacts.address ?? '').trim()) {
-    err('contacts.address', 'адреса порожня, але сторінка має карту');
-  }
-  for (const k of ['lat', 'lng']) {
-    if (typeof contacts[k] !== 'number' || Number.isNaN(contacts[k])) {
-      err(`contacts.${k}`, 'координата відсутня — карта і schema.org зламаються');
-    }
-  }
-  if (!Array.isArray(contacts.hours) || contacts.hours.length === 0) {
-    warn('contacts.hours', 'графік не заповнений — блок не відрендериться');
-  }
-}
-
-// ── 2. ПОСЛУГИ ────────────────────────────────────────────
-const services = await readCollection('services');
-
-if (services.length === 0) {
-  err('services', 'немає жодної послуги — блок цін порожній');
-}
-for (const s of services) {
-  if (!String(s.title ?? '').trim()) err(s._file, 'назва порожня');
-  if (!Number.isInteger(s.price_from) || s.price_from <= 0) {
-    err(s._file, `ціна відсутня або некоректна (${s.price_from})`);
-  }
-  if (s.note && String(s.note).length > 90) {
-    warn(s._file, `примітка ${String(s.note).length} символів, ліміт 90 — обріжеться`);
-  }
-}
-
-// ── 3. ГАЛЕРЕЯ ────────────────────────────────────────────
+// ── 1. ГАЛЕРЕЯ ────────────────────────────────────────────
 const gallery = await readCollection('gallery');
 const published = gallery.filter((g) => g.published === true);
 
@@ -123,13 +84,11 @@ for (const g of published) {
     // відносно самого файлу запису ("../../"). Шлях на кшталт
     // "/assets/gallery/foto.webp" він вважає посиланням у public/,
     // не знаходить файл і валить збірку з ImageNotFound.
-    // Такий шлях означає, що в public/admin/config.yml зіпсували public_folder.
     if (String(src).startsWith('/') && !String(src).startsWith('/src/')) {
       err(
         g._file,
         `${side}: шлях "${src}" Astro не знайде — він шукатиме файл у public/. ` +
-          'Очікується /src/assets/gallery/foto.webp. ' +
-          'Перевірте public_folder у public/admin/config.yml'
+          'Очікується /src/assets/gallery/foto.webp.'
       );
       continue;
     }
@@ -154,49 +113,14 @@ if (published.length < 4) {
   );
 }
 
-// ── 4. ВІДГУКИ ────────────────────────────────────────────
+// ── 2. ВІДГУКИ: лише поріг показу ─────────────────────────
+// Довжину тексту перевіряє zod (.max(400) у content.config.ts)
 const reviews = await readCollection('reviews');
-for (const r of reviews) {
-  if (String(r.text ?? '').length > 400) {
-    warn(r._file, `відгук ${String(r.text).length} символів, ліміт 400 — зламає сітку`);
-  }
-}
 if (reviews.length < 3) {
   warn('reviews', `${reviews.length} відгуків із мінімальних 3 — блок приховано`);
 }
 
-// ── 5. СТОРІНКИ ТА SEO ────────────────────────────────────
-for (const page of ['home', 'mobile']) {
-  const p = await readYaml(join(ROOT, 'pages', `${page}.yml`));
-  if (!p) {
-    err(`pages/${page}.yml`, 'файл відсутній');
-    continue;
-  }
-  if (!String(p.seo_title ?? '').trim()) {
-    err(`pages/${page}.seo_title`, 'порожній заголовок для пошуку');
-  } else if (p.seo_title.length > 60) {
-    warn(`pages/${page}.seo_title`, `${p.seo_title.length} символів — Google обріже після 60`);
-  }
-  if (!String(p.seo_description ?? '').trim()) {
-    warn(`pages/${page}.seo_description`, 'порожній опис — Google згенерує свій');
-  } else if (p.seo_description.length > 155) {
-    warn(`pages/${page}.seo_description`, `${p.seo_description.length} символів, ліміт 155`);
-  }
-  if (!String(p.h1 ?? '').trim()) err(`pages/${page}.h1`, 'порожній головний заголовок');
-}
-
-// ── 6. ЗОНА ВИЇЗДУ ────────────────────────────────────────
-const coverage = await readYaml(join(ROOT, 'coverage.yml'));
-if (coverage) {
-  if (!Array.isArray(coverage.areas) || coverage.areas.length === 0) {
-    warn('coverage.areas', 'не вказано жодного району — сторінка виїзду без географії');
-  }
-  if (!Number.isInteger(coverage.travel_fee)) {
-    err('coverage.travel_fee', 'вартість виїзду не вказана (0 = безкоштовно)');
-  }
-}
-
-// ── 7. ДЕМОНСТРАЦІЙНІ ЗАГЛУШКИ ────────────────────────────
+// ── 3. ДЕМОНСТРАЦІЙНІ ЗАГЛУШКИ ────────────────────────────
 /**
  * Заглушки з шаблону, які легко не помітити: вони не ламають збірку,
  * сайт із ними виглядає працездатним — і саме тому їдуть у продакшн.
@@ -260,8 +184,7 @@ if (!warns.length && !errors.length) {
 }
 
 console.log(
-  `\nСтатистика: послуг ${services.length}, ` +
-    `пар у галереї ${published.length}/${gallery.length}, ` +
+  `\nСтатистика: пар у галереї ${published.length}/${gallery.length}, ` +
     `відгуків ${reviews.length}\n`
 );
 
