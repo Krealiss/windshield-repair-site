@@ -3,11 +3,12 @@ import Base from '../layouts/Base.astro';
 import SchemaOrg from '../components/SchemaOrg.astro';
 import Analytics from '../components/Analytics.astro';
 import StickyCall from '../components/StickyCall.astro';
+import Hero from '../components/Hero.astro';
 import Prices from '../components/Prices.astro';
 import LeadForm from '../components/LeadForm.astro';
 import Contacts from '../components/Contacts.astro';
 import { loadSite } from '../lib/site';
-import { formatPhone, telHref } from '../lib/format';
+import type { HeroChip } from '../components/Hero.astro';
 
 const site = await loadSite('mobile');
 const { contacts, coverage, meta, phone, show } = site;
@@ -16,6 +17,15 @@ const feeText =
   coverage.travel_fee === 0
     ? 'Виїзд безкоштовний'
     : `Виїзд — ${coverage.travel_fee} грн`;
+
+// Ті самі «чіпи» першого екрана, що й на головній, але про виїзд:
+// скільки коштує дорога і як далеко їдемо
+const heroChips: HeroChip[] = [
+  { icon: 'car', text: feeText },
+  ...(coverage.radius_km
+    ? [{ icon: 'pin' as const, text: `до ${coverage.radius_km} км від міста` }]
+    : [{ icon: 'pin' as const, text: contacts.address }]),
+];
 ---
 
 <!--
@@ -31,15 +41,13 @@ const feeText =
   <SchemaOrg slot="head" site={site} isMobilePage={true} />
   <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
 
-  <section class="band mh">
-    <h1>{meta.h1}</h1>
-    {meta.hero_subtitle && <p class="mh__sub">{meta.hero_subtitle}</p>}
-    <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="hero_mobile">
-      {formatPhone(phone)}
-    </a>
-    <p class="mh__fee">{feeText}</p>
-    <div id="sticky-sentinel" aria-hidden="true"></div>
-  </section>
+  <Hero
+    h1={meta.h1}
+    subtitle={meta.hero_subtitle}
+    phone={phone}
+    placement="hero_mobile"
+    chips={heroChips}
+  />
 
   {show.coverage && (
     <section class="band area">
@@ -57,7 +65,7 @@ const feeText =
   )}
 
   {coverage.conditions && (
-    <section class="band band--alt cond">
+    <section class="band band--dark cond">
       <h2>Умови роботи на місці</h2>
       <p>{coverage.conditions}</p>
       <p class="cond__note">
@@ -88,28 +96,12 @@ const feeText =
 </Base>
 
 <style>
-  .mh {
-    display: grid;
-    gap: 1.05rem;
-    justify-items: start;
-    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
-  }
-  .mh h1 {
-    margin: 0;
-    font-size: clamp(1.85rem, 7vw, 3rem);
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    text-wrap: balance;
-    max-width: 18ch;
-  }
-  .mh__sub {
-    margin: 0;
-    font-size: clamp(1.02rem, 3.4vw, 1.25rem);
-    color: var(--muted);
-    max-width: 38ch;
-  }
-  .mh__fee { margin: 0; font-size: 0.9rem; color: var(--muted); }
-
+  /*
+    Першого екрана тут більше немає — його малює Hero, спільний
+    із головною. Власна копія верстки колись розійшлася з оригіналом
+    і потягла за собою старий padding, через який текст поїхав до
+    краю екрана.
+  */
   .area, .cond { display: grid; gap: 0.85rem; }
   .area__list {
     list-style: none; margin: 0; padding: 0;
@@ -135,16 +127,11 @@ const feeText =
     min-height: 44px;
     display: inline-flex;
     align-items: center;
-    color: var(--accent);
+    color: var(--link);
     font-weight: 600;
     text-decoration: none;
   }
   .back a:hover { text-decoration: underline; }
 
   .cond p { margin: 0; font-size: 0.95rem; line-height: 1.6; }
-
-  @media (min-width: 768px) {
-    .mh { padding: 3.5rem 2rem 2.5rem; }
-    .area, .cond { padding: 3rem 2rem; }
-  }
 </style>

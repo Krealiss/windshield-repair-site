@@ -2,28 +2,39 @@
 import { formatPhone, telHref } from '../lib/format';
 import HeroVisual from './HeroVisual.astro';
 
+/**
+ * Перший екран. Один на обидві сторінки.
+ *
+ * Раніше виїзна сторінка мала власну верстку першого екрана. Виглядало
+ * це майже так само, тому розбіжності ніхто не помічав — доки в її
+ * копії не лишився старий медіазапит із власним padding, і текст
+ * поїхав до краю екрана, поки решта блоків трималися контейнера.
+ * Одна верстка на дві сторінки прибирає цілий клас таких помилок.
+ *
+ * Правило: жодного зовнішнього запиту. Ні шрифтів із CDN, ні іконок,
+ * ні фонового зображення. Підкладка — градієнт на CSS, він нічого не важить.
+ *
+ * Дві дії, і вони нерівнозначні навмисно: дзвінок великий і кольоровий,
+ * форма — стримана. Ціль сайту одна, друга кнопка лише для тих,
+ * кому незручно говорити.
+ */
+export type HeroChip = {
+  icon: 'pin' | 'shield' | 'car';
+  text: string;
+};
+
 interface Props {
   h1: string;
   subtitle?: string;
   phone: string;
-  address: string;
-  guarantee?: string;
+  chips?: HeroChip[];
+  /** Значення data-cta для кнопки дзвінка — щоб бачити в аналітиці, з якої сторінки дзвонять */
+  placement?: string;
 }
 
-const { h1, subtitle, phone, address, guarantee } = Astro.props;
+const { h1, subtitle, phone, chips = [], placement = 'hero' } = Astro.props;
 ---
 
-<!--
-  Перший екран.
-
-  Правило: жодного зовнішнього запиту. Ні шрифтів із CDN, ні іконок,
-  ні фонового зображення. Усе, що потрібно для LCP, приходить
-  першим HTML-пакетом. Підкладка — градієнт на CSS, він нічого не важить.
-
-  Дві дії, і вони нерівнозначні навмисно: дзвінок великий і кольоровий,
-  форма — стримана. Ціль сайту одна, друга кнопка лише для тих,
-  кому незручно говорити.
--->
 <section class="band hero">
   <!--
     Текст загорнутий в окрему колонку навмисно. Без обгортки заголовок,
@@ -37,35 +48,47 @@ const { h1, subtitle, phone, address, guarantee } = Astro.props;
     {subtitle && <p class="hero__sub">{subtitle}</p>}
 
     <div class="hero__cta">
-    <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="hero">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
-        <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
-      </svg>
-      <span>{formatPhone(phone)}</span>
-    </a>
+      <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta={placement}>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
+        </svg>
+        <span>{formatPhone(phone)}</span>
+      </a>
 
-      <a class="btn btn--ghost" href="#lead" data-cta="hero_form">Надіслати фото сколу</a>
+      <a class="btn btn--ghost" href="#lead" data-cta={`${placement}_form`}>
+        Надіслати фото сколу
+      </a>
     </div>
 
-    <ul class="hero__trust">
-      <li>
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
-          <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
-        </svg>
-        <span>{address}</span>
-      </li>
-
-      {guarantee && (
-        <li>
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
-            <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-          </svg>
-          <span>{guarantee}</span>
-        </li>
-      )}
-    </ul>
+    {chips.length > 0 && (
+      <ul class="hero__trust">
+        {chips.map((c) => (
+          <li>
+            {c.icon === 'pin' && (
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+                <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
+              </svg>
+            )}
+            {c.icon === 'shield' && (
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+                <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            )}
+            {c.icon === 'car' && (
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3.4 16.2v-3l1.7-4.1a2 2 0 011.9-1.3h10a2 2 0 011.9 1.3l1.7 4.1v3a.9.9 0 01-.9.9H4.3a.9.9 0 01-.9-.9z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+                <path d="M3.6 13.2h16.8" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+                <circle cx="7.4" cy="15.1" r="1.1" fill="currentColor"></circle>
+                <circle cx="16.6" cy="15.1" r="1.1" fill="currentColor"></circle>
+              </svg>
+            )}
+            <span>{c.text}</span>
+          </li>
+        ))}
+      </ul>
+    )}
   </div>
 
   <!--

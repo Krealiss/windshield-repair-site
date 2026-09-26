@@ -43,8 +43,11 @@ const { contacts, meta, phone, show } = site;
     h1={meta.h1}
     subtitle={meta.hero_subtitle}
     phone={phone}
-    address={contacts.address}
-    guarantee={meta.guarantee}
+    placement="hero"
+    chips={[
+      { icon: 'pin', text: contacts.address },
+      ...(meta.guarantee ? [{ icon: 'shield' as const, text: meta.guarantee }] : []),
+    ]}
   />
 
   <Prices services={site.services} phone={phone} />
