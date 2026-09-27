@@ -495,9 +495,15 @@ Expected: успішно.
 
 Run:
 ```bash
-grep -c 'id="hero-phone"' dist/index.html && grep -c 'id="hero"' dist/index.html && grep -o 'text-transform:uppercase' dist/index.html | head -1
+grep -o 'id="hero-phone"' dist/index.html | wc -l && grep -o 'id="hero"' dist/index.html | wc -l
 ```
-Expected: `1`, `1`, `text-transform:uppercase`.
+Expected: `1` і `1`. Рахувати саме через `grep -o | wc -l`: `grep -c` рахує рядки, а зібраний HTML стоїть у 84 рядках, тож кілька збігів в одному рядку дали б `1` замість справжньої кількості.
+
+Run:
+```bash
+grep -o 'text-transform:\s*uppercase' dist/_astro/*.css | head -1
+```
+Expected: збіг знайдено. CSS у зібраному вигляді лежить не в `index.html`, а окремими файлами в `dist/_astro/` з хешем у назві — тому шлях із зірочкою.
 
 Run:
 ```bash
@@ -777,9 +783,11 @@ Expected: клас із `hdr--over` знайдено, `data-solid="false"` зн�
 
 Run:
 ```bash
-grep -c 'hdr--over' dist/thanks/index.html dist/404.html dist/polityka-konfidentsiynosti/index.html
+for f in dist/thanks/index.html dist/404.html dist/polityka-konfidentsiynosti/index.html; do
+  echo "$f: $(grep -o 'hdr--over' "$f" | wc -l)"
+done
 ```
-Expected: `0` для кожного файлу. Там суцільна шапка.
+Expected: `0` для кожного файлу. Там суцільна шапка. Цикл, а не `grep -c` по трьох файлах: `grep` без збігів виходить із кодом 1, і правильний результат виглядав би як помилка команди.
 
 Run:
 ```bash
@@ -1212,7 +1220,7 @@ const { items, phone, viber, telegram, address } = Astro.props;
 
 - [ ] **Step 5: Блок прокрутки — у `Base.astro`**
 
-Клас навішується на `<html>`, тож правило має бути глобальним. Додати в `Base.astro` після блоку `@media (min-width: 768px) { body { padding-bottom: 0; } }`:
+Клас навішується на `<html>`, тож правило має бути глобальним. Точне місце: у `Base.astro` між блоком `@media (min-width: 768px) { body { padding-bottom: 0; } }` і коментарем про привʼязку прокрутки (обидва додала Задача 2) — так правило стоїть поряд із рештою правил для `html`, а коментар не відривається від свого блоку.
 
 ```css
       /*
@@ -1397,9 +1405,9 @@ Expected: успішно.
 
 Run:
 ```bash
-grep -o 'aria-controls="nav-panel"' dist/index.html | head -1 && grep -o 'aria-expanded="false"' dist/index.html | head -1 && grep -c 'data-nav-link' dist/index.html
+grep -o 'aria-controls="nav-panel"' dist/index.html | head -1 && grep -o 'aria-expanded="false"' dist/index.html | head -1 && grep -o 'data-nav-link' dist/index.html | wc -l
 ```
-Expected: `aria-controls="nav-panel"`, `aria-expanded="false"`, і `5` — саме пʼять пунктів. Галерея й відгуки зараз під порогом показу (`src/lib/site.ts`), тож пунктів «Роботи» й «Відгуки» бути не має.
+Expected: `aria-controls="nav-panel"`, `aria-expanded="false"`, і `5` — саме пʼять пунктів. Галерея й відгуки зараз під порогом показу (`src/lib/site.ts`), тож пунктів «Роботи» й «Відгуки» бути не має. Кількість — через `grep -o | wc -l`, бо `grep -c` порахував би рядки, а не збіги.
 
 Run:
 ```bash
@@ -1409,7 +1417,9 @@ Expected: **порожній вивід**. Меню не посилається 
 
 Run:
 ```bash
-grep -c 'nav-panel' dist/thanks/index.html dist/404.html dist/polityka-konfidentsiynosti/index.html
+for f in dist/thanks/index.html dist/404.html dist/polityka-konfidentsiynosti/index.html; do
+  echo "$f: $(grep -o 'nav-panel' "$f" | wc -l)"
+done
 ```
 Expected: `0` для кожного. Там меню немає.
 
