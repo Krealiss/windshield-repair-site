@@ -57,11 +57,13 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
     </a>
 
     {nav.length > 0 && (
-      <ul class="hdr__links">
-        {nav.map((i) => (
-          <li><a href={i.href}>{i.short}</a></li>
-        ))}
-      </ul>
+      <nav class="hdr__nav" aria-label="Розділи сторінки">
+        <ul class="hdr__links">
+          {nav.map((i) => (
+            <li><a href={i.href}>{i.short}</a></li>
+          ))}
+        </ul>
+      </nav>
     )}
 
     {phone && (
@@ -103,8 +105,7 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
     */
     box-shadow: inset 0 -1px 0 var(--border);
     padding-inline: max(1rem, calc((100% - var(--container)) / 2));
-    transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out,
-                color 0.2s ease-out;
+    transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
   }
 
   .hdr__inner {
@@ -112,7 +113,15 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
     align-items: center;
     gap: 0.75rem;
     min-height: var(--hdr-h);
+    /* Колір міняється саме тут (.hdr--over/.hdr__inner нижче), не
+       у батьківському .hdr — перехід тому й стоїть на цьому елементі,
+       а не поруч із background-color/box-shadow вище */
+    transition: color 0.2s ease-out;
   }
+
+  /* Обгортка-landmark нічого не малює: розмітку й розкладку .hdr__links
+     не займає */
+  .hdr__nav { display: contents; }
 
   /*
     Прозорий стан на головній.

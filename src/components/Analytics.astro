@@ -3,7 +3,7 @@
  * Уся аналітика конверсій — одним делегованим слухачем на document.
  *
  * Чому так, а не onclick на кожній кнопці:
- * кнопок дзвінка на сторінці 3–4 (шапка, перший екран, контакти,
+ * кнопок дзвінка на сторінці 3–4 (шапка, меню, перший екран, контакти,
  * sticky-панель). Розкидані обробники неминуче розсинхронізуються, і
  * одна з кнопок тихо перестане рахуватися. Тут джерело істини одне.
  *
@@ -38,7 +38,7 @@ const { gtmId } = Astro.props;
 
       window.dataLayer.push({
         event: channel.event,
-        // Звідки саме натиснули: header / hero / sticky / contacts
+        // Звідки саме натиснули: header / menu / hero / sticky / contacts
         cta_placement: link.dataset.cta ?? 'unknown',
         page_path: location.pathname,
       });

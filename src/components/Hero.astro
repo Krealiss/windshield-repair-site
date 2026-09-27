@@ -54,7 +54,12 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     заголовком поруч. Тому й aria-hidden на обгортці.
 
     Щоб замінити знімок — покласти новий файл у src/assets/ і змінити
-    один import угорі. Розміри й сучасний формат Astro зробить сам.
+    один import угорі. Формат Astro підбирає сам (webp). Розміри
+    (widths нижче) розраховані на майбутній ширший файл — поки джерело
+    lobove.png лишається 600×400, Astro все одно згенерує лише один
+    варіант: у зібраній сторінці один запис у srcset, у лозі збірки
+    «generating optimized images (1/1)». Список запрацює сам, щойно
+    приїде ширший знімок — див. README, «Що лишилось зробити».
   -->
   <div class="hero__media" aria-hidden="true">
     <Image
@@ -259,7 +264,6 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
   @media (min-width: 768px) {
     .hero__inner {
       gap: 1.15rem;
-      max-width: none;
       padding-inline: max(1.5rem, calc((100% - var(--container)) / 2));
     }
     .hero__title { max-width: 24ch; }
