@@ -25,7 +25,7 @@ export type NavItem = {
 export function buildNav(show: { gallery: boolean; reviews: boolean }): NavItem[] {
   return [
     { href: '#remont', label: 'Ремонт замість заміни', short: 'Ремонт' },
-    { href: '#process', label: 'Як це відбувається', short: 'Як це буде' },
+    { href: '#maysternya', label: 'Майстерня і виїзд', short: 'Майстерня' },
     ...(show.gallery
       ? [{ href: '#roboty', label: 'Результати робіт', short: 'Роботи' }]
       : []),

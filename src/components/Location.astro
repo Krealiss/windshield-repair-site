@@ -1,0 +1,136 @@
+---
+interface Props {
+  coverage: {
+    areas?: string[];
+    conditions?: string;
+  };
+  address: string;
+}
+const { coverage, address } = Astro.props;
+
+/**
+ * Де робиться ремонт: майстерня і виїзд.
+ *
+ * Раніше блок називався «Як це відбувається» і починався з чотирьох
+ * кроків ремонту. Замовник їх прибрав — лишились дві відповіді на
+ * єдине питання, яке тут справді вирішує: їхати до вас чи ви до мене.
+ * Тому й заголовок інший: блок більше не про процес.
+ *
+ * Два варіанти навмисно рівноцінні на вигляд — жоден не «основний».
+ * Людині зі сколом однаково зручно і те, і те, а нав'язаний вибір
+ * коштує дзвінка.
+ */
+
+// «Київ, Київська область» → «Київ і Київська область» — природне
+// перерахування без коми перед останнім пунктом.
+// Навмисно в називному відмінку й без прийменника, що вимагав би
+// відмінювання («по Києву», «по Київській області») — назви території
+// в контенті зберігаються в називному, і зайва граматика в компоненті
+// це або зламає, або доведеться хардкодити відмінкові форми тут.
+const areas = coverage.areas ?? [];
+const areasText =
+  areas.length > 1
+    ? `${areas.slice(0, -1).join(', ')} і ${areas[areas.length - 1]}`
+    : areas[0] ?? '';
+---
+
+<section class="band band--dark loc" id="maysternya">
+  <h2>Майстерня і виїзд</h2>
+
+  <div class="loc__grid">
+    <div class="loc__card">
+      <span class="loc__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M12 21s7-5.6 7-11a7 7 0 10-14 0c0 5.4 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+          <circle cx="12" cy="10" r="2.6" fill="currentColor"></circle>
+        </svg>
+      </span>
+
+      <h3>Приїжджайте до нас</h3>
+      <p class="loc__lead">{address}</p>
+      <p class="loc__note">Ремонт займає до години — можна зачекати на місці.</p>
+    </div>
+
+    <div class="loc__card">
+      <span class="loc__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M3.4 16.2v-3l1.7-4.1a2 2 0 011.9-1.3h10a2 2 0 011.9 1.3l1.7 4.1v3a.9.9 0 01-.9.9H4.3a.9.9 0 01-.9-.9z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+          <path d="M3.6 13.2h16.8" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+          <circle cx="7.4" cy="15.1" r="1.1" fill="currentColor"></circle>
+          <circle cx="16.6" cy="15.1" r="1.1" fill="currentColor"></circle>
+        </svg>
+      </span>
+
+      <h3>Або виїдемо до вас</h3>
+      <p class="loc__lead">
+        {areasText ? `Зона виїзду — ${areasText}` : 'Виїжджаємо по місту й області'}
+      </p>
+      <p class="loc__note">Вартість виїзду скажемо одразу по телефону.</p>
+      {coverage.conditions && <p class="loc__note">{coverage.conditions}</p>}
+    </div>
+  </div>
+</section>
+
+<style>
+  .loc { display: grid; gap: 1.5rem; }
+
+  .loc__grid { display: grid; gap: 0.85rem; }
+
+  /*
+    Картки тягнуться на однакову висоту (align-items: stretch у гріда
+    за замовчуванням), а вміст усередині вирівняний згори: без цього
+    коротша картка «плавала» по центру відносно сусідньої.
+  */
+  .loc__card {
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+    padding: 1.35rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--surface-alt);
+  }
+
+  /*
+    Кружок акцентного кольору — той самий мотив, що був у номерів
+    кроків. Кроки прибрали, мотив лишився: він і тримає зв'язок
+    цього блоку з рештою сторінки.
+  */
+  .loc__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 0.55rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .loc__icon svg { width: 22px; height: 22px; }
+
+  .loc__card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+  }
+
+  .loc__lead {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .loc__note {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  /* Перша примітка відсувається від адреси, наступні йдуть щільніше */
+  .loc__lead + .loc__note { margin-top: 0.35rem; }
+
+  @media (min-width: 768px) {
+    .loc__grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .loc__card { padding: 1.5rem 1.4rem; }
+  }
+</style>

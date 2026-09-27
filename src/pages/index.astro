@@ -5,7 +5,7 @@ import Analytics from '../components/Analytics.astro';
 import StickyCall from '../components/StickyCall.astro';
 import Hero from '../components/Hero.astro';
 import RepairVsReplace from '../components/RepairVsReplace.astro';
-import Process from '../components/Process.astro';
+import Location from '../components/Location.astro';
 import Gallery from '../components/Gallery.astro';
 import Reviews from '../components/Reviews.astro';
 import Faq from '../components/Faq.astro';
@@ -40,7 +40,7 @@ const nav = buildNav(show);
 
     1. Ви це робите і де ви?        → Hero
     2. А в мене взагалі ремонтується?→ RepairVsReplace
-    3. Як це буде відбуватися?      → Process
+    3. Де це робиться, чи приїдете? → Location
     4. Покажіть результат           → Gallery
     5. Вам можна вірити?            → Reviews
     6. Дрібні сумніви               → Faq
@@ -63,7 +63,7 @@ const nav = buildNav(show);
 
   <RepairVsReplace />
 
-  <Process coverage={site.coverage} address={contacts.address} />
+  <Location coverage={site.coverage} address={contacts.address} />
 
   {show.gallery && <Gallery pairs={site.gallery} />}
 

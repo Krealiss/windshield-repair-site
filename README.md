@@ -3,7 +3,7 @@
 Односторінковий сайт: одна продавальна сторінка (головна) плюс службові —
 подяка, 404 і політика конфіденційності. Виїзний ремонт — не окрема
 сторінка, а блок «Або виїдемо до вас» на головній
-(`src/components/Process.astro`), дані для нього — у
+(`src/components/Location.astro`), дані для нього — у
 `src/content/coverage.yml`. Статична збірка, контент редагує розробник.
 Ціль сайту — вхідні дзвінки.
 
@@ -127,7 +127,7 @@ order: 10             # менше число — вище в списку
 | Перелік пунктів меню і їхні підписи | `src/lib/nav.ts` |
 | Перший екран | `src/components/Hero.astro` |
 | «Ремонт замість заміни» | `src/components/RepairVsReplace.astro` |
-| «Як це відбувається» | `src/components/Process.astro` |
+| «Майстерня і виїзд» | `src/components/Location.astro` |
 | Галерея | `src/components/Gallery.astro` |
 | Відгуки | `src/components/Reviews.astro` |
 | Питання і відповіді — тільки заголовок блоку, самі питання в контенті | `src/components/Faq.astro` |
