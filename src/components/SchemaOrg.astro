@@ -7,7 +7,7 @@ interface Props {
 }
 
 const { site } = Astro.props;
-const { contacts, reviews, faq } = site;
+const { contacts, coverage, reviews, faq } = site;
 
 const DAY_MAP: Record<string, string> = {
   'Понеділок': 'Monday',
@@ -39,6 +39,17 @@ const business: Record<string, unknown> = {
   // priceRange свідомо немає: ціни на сайті не публікуються, їх називає
   // оператор телефоном. Вигаданий діапазон у розмітці — гірше за його брак.
 };
+
+// areaServed навмисно грубий — два широких значення (місто й область),
+// а не перелік районів чи населених пунктів. Адреса лишається реальною
+// (майстерня в Софіївській Борщагівці), а areaServed окремо описує зону
+// виїзду. Значення бере з src/content/coverage.yml, не хардкодиться тут.
+if (coverage.areas.length) {
+  business.areaServed = coverage.areas.map((name) => ({
+    '@type': 'Place',
+    name,
+  }));
+}
 
 if (contacts.hours.length) {
   business.openingHoursSpecification = contacts.hours

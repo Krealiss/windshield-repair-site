@@ -114,6 +114,7 @@ order: 10             # менше число — вище в списку
 |---|---|
 | Питання і відповіді | `src/content/faq/` — один файл на питання |
 | Абзац «Умови роботи на місці» | `src/content/coverage.yml`, поле `conditions` |
+| Зона виїзду (текст «Або виїдемо до вас» і `areaServed` у schema.org) | `src/content/coverage.yml`, поле `areas` |
 | Телефон, Viber, Telegram, адреса, години роботи | `src/content/contacts.yml` |
 | Заголовки й описи для пошуку, H1 і підзаголовок першого екрана | `src/content/pages/home.yml` |
 
