@@ -31,6 +31,7 @@ const { phone, viber, telegram } = Astro.props;
     class="sticky-call__main"
     href={telHref(phone)}
     data-cta="sticky"
+    data-phone
     aria-label={`Подзвонити ${formatPhone(phone)}`}
   >
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

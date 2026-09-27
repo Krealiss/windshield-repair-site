@@ -29,7 +29,7 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat}
 
   <div class="cnt__grid">
     <div class="cnt__main">
-      <a class="cnt__phone" href={telHref(phone)} data-cta="contacts">{formatPhone(phone)}</a>
+      <a class="cnt__phone" href={telHref(phone)} data-cta="contacts" data-phone>{formatPhone(phone)}</a>
 
       <div class="cnt__msg">
         {contacts.viber && (

@@ -20,7 +20,7 @@ const site = await loadSite('home');
       <li><a href="/vyizdnyi-remont/">Виїзний ремонт</a></li>
     </ul>
     <p class="nf__hint">Або просто зателефонуйте:</p>
-    <a class="btn btn--primary btn--lg" href={telHref(site.phone)} data-cta="404">
+    <a class="btn btn--primary btn--lg" href={telHref(site.phone)} data-cta="404" data-phone>
       {formatPhone(site.phone)}
     </a>
   </section>
