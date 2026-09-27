@@ -98,6 +98,20 @@ const { items, phone, viber, telegram, address } = Astro.props;
 
 <style>
   .burger {
+    /*
+      Панель — position: fixed усередині шапки, і без явного z-index
+      вона малюється поверх звичайного потоку, до якого належить ця
+      кнопка (позиційовані елементи завжди поверх непозиційованих,
+      незалежно від порядку в розмітці). На вузьких екранах панель
+      притиснута праворуч і буквально лежить під кнопкою — хрестик
+      є в розмітці, але його не видно і не натиснути.
+
+      Рішення: зробити кнопку теж позиційованою з додатним z-index —
+      тоді вона малюється над панеллю (стек-контекст усередині .hdr,
+      z-index якого не займаємо, а лишаємось відносно нього).
+    */
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -117,6 +131,15 @@ const { items, phone, viber, telegram, address } = Astro.props;
   .burger__cross { display: none; }
   .burger[aria-expanded='true'] .burger__bars { display: none; }
   .burger[aria-expanded='true'] .burger__cross { display: block; }
+
+  /*
+    Відкрита панель — суцільно біла (var(--surface)) і лежить під
+    кнопкою по всій її площі, включно з ділянкою над фото, де .hdr__inner
+    задає світлий успадкований колір. Білий хрестик на білій панелі не
+    видно, тож у відкритому стані колір фіксуємо темним токеном —
+    незалежно від того, прозора шапка зараз чи суцільна.
+  */
+  .burger[aria-expanded='true'] { color: var(--text); }
 
   /* Від 1000px посилання стоять просто в шапці — кнопка не потрібна.
      Число не 768: сім пунктів українською в рядок туди не вміщаються,
@@ -302,11 +325,15 @@ const { items, phone, viber, telegram, address } = Astro.props;
 
       if (e.key !== 'Tab') return;
 
-      // Пастка фокуса. Очима вона не видна — тільки з клавіатури
-      const items = Array.from(panel.querySelectorAll(FOCUSABLE)).filter(
+      // Пастка фокуса. Очима вона не видна — тільки з клавіатури.
+      // Кнопка-перемикач тепер у кільці першою: вона малюється над
+      // панеллю (z-index вище) і є видимим способом закрити меню,
+      // тож із клавіатури до неї теж має бути можна дійти — Tab не
+      // повинен пропускати її й вести одразу на сторінку під накладкою.
+      const panelItems = Array.from(panel.querySelectorAll(FOCUSABLE)).filter(
         (el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null
       );
-      if (items.length === 0) return;
+      const items = [toggle, ...panelItems];
 
       const first = items[0];
       const last = items[items.length - 1];
