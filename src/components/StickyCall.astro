@@ -17,14 +17,12 @@ const { phone, viber, telegram } = Astro.props;
   scroll спрацьовує сотні разів на секунду і смикає головний потік
   саме тоді, коли людина гортає. Observer коштує нуль.
 
-  Панель з'являється тільки коли перший екран пішов угору — інакше
-  вона дублює кнопку, яка й так на видноті, і з'їдає частину екрана.
-
-  Сентинел, за яким стежить спостерігач, ставить сторінка — наприкінці
-  свого першого екрана (див. Hero.astro і vyizdnyi-remont.astro).
-  Тут його немає навмисно: цей компонент рендериться в кінці <body>,
-  і власний сентинел опинявся б унизу сторінки, тобто означав би
-  протилежне тому, що потрібно.
+  Панель з'являється рівно тоді, коли кнопка з номером телефону на
+  першому екрані (Hero.astro, id="hero-phone") йде за межі видимої
+  частини — інакше вона дублює кнопку, яка й так на видноті, і
+  з'їдає частину екрана. Стежимо за самою кнопкою, а не за окремим
+  маркером поруч: так поведінка лишається правильною, навіть якщо
+  розмітка першого екрана зміниться.
 -->
 <div class="sticky-call" id="sticky-call" data-visible="false">
   <a
@@ -150,19 +148,19 @@ const { phone, viber, telegram } = Astro.props;
 
 <script>
   const bar = document.getElementById('sticky-call');
-  const sentinel = document.getElementById('sticky-sentinel');
+  const heroPhone = document.getElementById('hero-phone');
 
   if (bar) {
-    if (sentinel && 'IntersectionObserver' in window) {
+    if (heroPhone && 'IntersectionObserver' in window) {
       new IntersectionObserver(
         ([entry]) => {
-          // Сентинел видно = ми на першому екрані = панель ховаємо
+          // Кнопку видно = панель ховаємо; кнопка пішла за межі екрана = показуємо
           bar.dataset.visible = entry.isIntersecting ? 'false' : 'true';
         },
         { rootMargin: '0px' }
-      ).observe(sentinel);
+      ).observe(heroPhone);
     } else {
-      // Старий браузер або сторінка без сентинела — показуємо завжди.
+      // Старий браузер або сторінка без кнопки — показуємо завжди.
       // Краще зайва панель, ніж кнопка дзвінка, якої немає ніде.
       bar.dataset.visible = 'true';
     }
