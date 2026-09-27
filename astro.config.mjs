@@ -4,15 +4,15 @@ import sitemap from '@astrojs/sitemap';
 export default defineConfig({
   site: 'https://avtoskloua.com',
 
-  // Один канонічний варіант URL. Без цього /vyizdnyi-remont і
-  // /vyizdnyi-remont/ стануть двома сторінками з однаковим вмістом.
+  // Один канонічний варіант URL. Без цього /thanks і /thanks/
+  // стануть двома сторінками з однаковим вмістом.
   trailingSlash: 'always',
   build: { format: 'directory' },
 
   compressHTML: true,
 
-  // Префетч вимкнено навмисно: сторінок дві, людина майже завжди
-  // читає одну і дзвонить. Префетч тут витрачав би чужий трафік дарма.
+  // Префетч вимкнено навмисно: сайт односторінковий, людина й так на
+  // потрібній сторінці. Префетч тут витрачав би чужий трафік дарма.
   prefetch: false,
 
   integrations: [

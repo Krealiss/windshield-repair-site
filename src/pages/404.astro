@@ -3,7 +3,7 @@ import Base from '../layouts/Base.astro';
 import { loadSite } from '../lib/site';
 import { formatPhone, telHref } from '../lib/format';
 
-const site = await loadSite('home');
+const site = await loadSite();
 ---
 
 <Base
@@ -14,11 +14,8 @@ const site = await loadSite('home');
 >
   <section class="band nf">
     <h1>Такої сторінки немає</h1>
-    <p>Можливо, посилання застаріло. Ось що є:</p>
-    <ul>
-      <li><a href="/">Ремонт сколів і тріщин</a></li>
-      <li><a href="/vyizdnyi-remont/">Виїзний ремонт</a></li>
-    </ul>
+    <p>Можливо, посилання застаріло.</p>
+    <a class="btn btn--primary" href="/">← На головну</a>
     <p class="nf__hint">Або просто зателефонуйте:</p>
     <a class="btn btn--primary btn--lg" href={telHref(site.phone)} data-cta="404" data-phone>
       {formatPhone(site.phone)}
@@ -34,7 +31,5 @@ const site = await loadSite('home');
     letter-spacing: -0.02em;
   }
   .nf p { margin: 0; }
-  .nf ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
-  .nf ul a { color: var(--accent); }
   .nf__hint { color: var(--muted); font-size: 0.95rem; margin-top: 0.35rem !important; }
 </style>

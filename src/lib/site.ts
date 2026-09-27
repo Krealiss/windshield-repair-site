@@ -59,12 +59,12 @@ function loadYaml<T extends z.ZodTypeAny>(path: string, schema: T): z.infer<T> {
 const MIN_GALLERY_PAIRS = 4;
 const MIN_REVIEWS = 3;
 
-export type PageKey = 'home' | 'mobile';
-
-export async function loadSite(page: PageKey) {
+// Сторінка на сайті одна, тому параметра-ключа тут більше немає —
+// раніше він вибирав між home.yml і mobile.yml, а другого файлу не стало.
+export async function loadSite() {
   const contacts = loadYaml('./src/content/contacts.yml', contactsSchema);
   const coverage = loadYaml('./src/content/coverage.yml', coverageSchema);
-  const meta = loadYaml(`./src/content/pages/${page}.yml`, pageSchema);
+  const meta = loadYaml('./src/content/pages/home.yml', pageSchema);
 
   // Опублікована пара без обох фото не показується ніколи —
   // навіть якщо валідатор чомусь пропустили

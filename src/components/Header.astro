@@ -4,8 +4,9 @@ import { formatPhone, telHref } from '../lib/format';
 /**
  * Шапка сайту.
  *
- * Навігація стоїть тут, а не у футері: сторінок дві, і людина має
- * бачити другу одразу, а не після прокрутки до самого низу.
+ * Сторінка одна, тож навігації в шапці немає — лише логотип ліворуч
+ * і кнопка дзвінка праворуч. Політика конфіденційності є у футері,
+ * посилатись на неї ще й тут зайве.
  *
  * Телефон у шапці з'являється від 768px — рівно там, де ховається
  * нижня липка панель. Так кнопка дзвінка є завжди, але жодного разу
@@ -15,12 +16,6 @@ interface Props {
   phone?: string;
 }
 const { phone } = Astro.props;
-
-const NAV = [
-  { href: '/', label: 'Головна' },
-  { href: '/vyizdnyi-remont/', label: 'Виїзний ремонт' },
-];
-const here = Astro.url.pathname;
 ---
 
 <header class="hdr">
@@ -41,14 +36,6 @@ const here = Astro.url.pathname;
       </svg>
       <span class="hdr__name">Автоскло</span>
     </a>
-
-    <nav class="hdr__nav" aria-label="Розділи сайту">
-      {NAV.map((l) => (
-        <a href={l.href} aria-current={here === l.href ? 'page' : undefined}>
-          {l.label}
-        </a>
-      ))}
-    </nav>
 
     {phone && (
       <a class="btn btn--primary hdr__call" href={telHref(phone)} data-cta="header" data-phone>
@@ -96,33 +83,6 @@ const here = Astro.url.pathname;
     .hdr__name { display: none; }
   }
 
-  .hdr__nav {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .hdr__nav a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 0.6rem;
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: color 0.15s ease-out, background-color 0.15s ease-out;
-  }
-  .hdr__nav a:hover { color: var(--text); background: var(--surface-alt); }
-
-  .hdr__nav a[aria-current='page'] {
-    color: var(--accent);
-    font-weight: 600;
-    background: var(--accent-soft);
-  }
-
   /* Телефон у шапці — рівно там, де зникає нижня панель */
   .hdr__call { display: none; }
   .hdr__call svg { width: 18px; height: 18px; flex: none; }
@@ -136,8 +96,6 @@ const here = Astro.url.pathname;
     }
     .hdr__inner { min-height: 68px; gap: 1rem; }
     .hdr__name { font-size: 1.05rem; }
-    .hdr__nav { gap: 0.35rem; }
-    .hdr__nav a { font-size: 0.95rem; padding: 0 0.85rem; }
     .hdr__call {
       display: inline-flex;
       min-height: 44px;

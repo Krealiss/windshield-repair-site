@@ -4,10 +4,9 @@ import { padTime } from '../lib/format';
 
 interface Props {
   site: SiteData;
-  isMobilePage?: boolean;
 }
 
-const { site, isMobilePage = false } = Astro.props;
+const { site } = Astro.props;
 const { contacts, coverage, reviews, faq } = site;
 
 const DAY_MAP: Record<string, string> = {
@@ -71,21 +70,22 @@ if (reviews.length >= 3) {
   };
 }
 
-// ── FAQ: тільки на головній, щоб не дублювати між сторінками ──
+// ── FAQ ────────────────────────────────────────────────────
+// Сторінка одна, тож дублювати FAQPage нема з чим — розмітка йде завжди,
+// коли в контенті є хоч одне питання з in_schema: true.
 const faqItems = faq.filter((f) => f.in_schema);
-const faqNode =
-  !isMobilePage && faqItems.length
-    ? {
-        '@type': 'FAQPage',
-        mainEntity: faqItems.map((f) => ({
-          '@type': 'Question',
-          name: f.question,
-          acceptedAnswer: { '@type': 'Answer', text: f.answer },
-        })),
-      }
-    : null;
+const faqNode = faqItems.length
+  ? {
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((f) => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
+    }
+  : null;
 
-// У @graph лишається сутність бізнесу, а на головній — ще й FAQ.
+// У @graph лишається сутність бізнесу і FAQ.
 // Вузлів Service тут більше немає: без ціни Offer порожній, а Service
 // без нього лише дублює назву послуги, яку Google і так бачить у тексті.
 const graph = [business, ...(faqNode ? [faqNode] : [])];

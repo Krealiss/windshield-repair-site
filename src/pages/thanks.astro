@@ -3,7 +3,7 @@ import Base from '../layouts/Base.astro';
 import { loadSite } from '../lib/site';
 import { formatPhone, telHref } from '../lib/format';
 
-const site = await loadSite('home');
+const site = await loadSite();
 const phone = site.phone;
 ---
 

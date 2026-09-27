@@ -13,7 +13,7 @@ import LeadForm from '../components/LeadForm.astro';
 import Contacts from '../components/Contacts.astro';
 import { loadSite } from '../lib/site';
 
-const site = await loadSite('home');
+const site = await loadSite();
 const { contacts, meta, phone, show } = site;
 ---
 
@@ -42,7 +42,6 @@ const { contacts, meta, phone, show } = site;
     h1={meta.h1}
     subtitle={meta.hero_subtitle}
     phone={phone}
-    placement="hero"
     chips={[
       { icon: 'pin', text: contacts.address },
       ...(meta.guarantee ? [{ icon: 'shield' as const, text: meta.guarantee }] : []),
