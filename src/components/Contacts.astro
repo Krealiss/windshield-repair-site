@@ -1,5 +1,6 @@
 ---
 import { formatPhone, telHref, viberHref, telegramHref } from '../lib/format';
+import SocialIcon from './SocialIcon.astro';
 
 interface Props {
   contacts: {
@@ -31,12 +32,22 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat}
     <div class="cnt__main">
       <a class="cnt__phone" href={telHref(phone)} data-cta="contacts" data-phone>{formatPhone(phone)}</a>
 
+      <!--
+        Іконки замість підписів — як у нижній липкій панелі
+        (StickyCall.astro). Видимого тексту не лишається, тому
+        aria-label обовʼязковий: це єдине, чим одна кнопка
+        відрізняється від іншої для читалки екрана.
+      -->
       <div class="cnt__msg">
         {contacts.viber && (
-          <a class="btn btn--ghost" href={viberHref(contacts.viber)} data-cta="contacts">Viber</a>
+          <a class="cnt__social" href={viberHref(contacts.viber)} data-cta="contacts" aria-label="Написати у Viber">
+            <SocialIcon kind="viber" />
+          </a>
         )}
         {contacts.telegram && (
-          <a class="btn btn--ghost" href={telegramHref(contacts.telegram)} data-cta="contacts">Telegram</a>
+          <a class="cnt__social" href={telegramHref(contacts.telegram)} data-cta="contacts" aria-label="Написати в Telegram">
+            <SocialIcon kind="telegram" />
+          </a>
         )}
       </div>
 
@@ -85,7 +96,18 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat}
   .cnt__phone:hover { color: var(--accent-strong); }
 
   .cnt__msg { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .cnt__msg .btn { min-height: 44px; padding: 0 1rem; font-size: 0.92rem; }
+  .cnt__social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    /* Кольори іконок фіксовані в SocialIcon.astro (фірмові), тут керувати нічим */
+    text-decoration: none;
+  }
 
   .cnt__addr { margin: 0; display: grid; gap: 0.3rem; font-size: 0.95rem; }
   .cnt__addr a { color: var(--accent); justify-self: start; text-decoration: none; font-weight: 500; }
