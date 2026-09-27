@@ -3,14 +3,28 @@ import { formatPhone, telHref } from '../lib/format';
 import HeroVisual from './HeroVisual.astro';
 
 /**
- * Перший екран.
+ * Перший екран: знімок на всю висоту вікна, текст поверх нього.
  *
- * Правило: жодного зовнішнього запиту. Ні шрифтів із CDN, ні іконок,
- * ні фонового зображення. Підкладка — градієнт на CSS, він нічого не важить.
+ * Три шари, знизу вгору:
+ *   .hero__media — знімок (поки що графіка-заглушка HeroVisual)
+ *   .hero__scrim — затемнення (--hero-scrim у Base.astro)
+ *   .hero__inner — заголовок, підзаголовок, кнопки, чіпи
  *
- * Дві дії, і вони нерівнозначні навмисно: дзвінок великий і кольоровий,
- * форма — стримана. Ціль сайту одна, друга кнопка лише для тих,
- * кому незручно говорити.
+ * Затемнення фіксоване, а не підігнане під поточну картинку: знімок
+ * замінять, і світле фото не повинно зламати текст.
+ *
+ * Поверх фотографії немає приглушеного кольору тексту — усе біле,
+ * ієрархія тримається на розмірі й вазі. Приглушений білий поверх
+ * невідомого знімка дає контраст, який неможливо порахувати заздалегідь.
+ *
+ * Капс робить тільки CSS. У home.yml заголовок звичайним регістром:
+ * інакше читалки екрана вимовляють його по літерах, а пошуковик
+ * отримує крик.
+ *
+ * Два ідентифікатори тут не перейменовувати:
+ *   id="hero"       — за секцією стежить шапка (Header.astro), щоб
+ *                     перемкнути прозорий стан на суцільний
+ *   id="hero-phone" — за кнопкою стежить нижня панель (StickyCall.astro)
  */
 export type HeroChip = {
   icon: 'pin' | 'shield' | 'car';
@@ -27,14 +41,27 @@ interface Props {
 const { h1, subtitle, phone, chips = [] } = Astro.props;
 ---
 
-<section class="band hero">
+<section class="hero" id="hero">
   <!--
-    Текст загорнутий в окрему колонку навмисно. Без обгортки заголовок,
-    підзаголовок і кнопки були б рядками спільного гриду, а рядки
-    розтягувалися б під висоту картинки — між заголовком і підзаголовком
-    зʼявлялася діра завширшки з абзац.
+    Шар знімка. Коли зʼявиться фотографія, вміст цього div замінюється
+    цілком, решта верстки не змінюється:
+
+      import heroPhoto from '../assets/hero.jpg';
+      ...
+      <Image src={heroPhoto} alt="" widths={[640, 960, 1440, 1920]}
+             sizes="100vw" loading="eager" fetchpriority="high" />
+
+    Фон першого екрана не можна вантажити ліниво — він і буде найбільшим
+    елементом, за яким Lighthouse міряє LCP. alt порожній навмисно:
+    фон нічого не повідомляє, усе сказано заголовком поруч.
   -->
-  <div class="hero__text">
+  <div class="hero__media" aria-hidden="true">
+    <HeroVisual />
+  </div>
+
+  <div class="hero__scrim" aria-hidden="true"></div>
+
+  <div class="hero__inner">
     <h1 class="hero__title">{h1}</h1>
 
     {subtitle && <p class="hero__sub">{subtitle}</p>}
@@ -47,7 +74,7 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
         <span>{formatPhone(phone)}</span>
       </a>
 
-      <a class="btn btn--ghost" href="#lead" data-cta="hero_form">
+      <a class="btn btn--on-photo" href="#lead" data-cta="hero_form">
         Надіслати фото сколу
       </a>
     </div>
@@ -82,94 +109,112 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
       </ul>
     )}
   </div>
-
-  <!--
-    На телефоні картинка стоїть ПІСЛЯ кнопок навмисно: якби вона була
-    між підзаголовком і дзвінком, головна дія поїхала б за межі
-    першого екрана. На десктопі вона переїжджає в другу колонку.
-  -->
-  <div class="hero__visual">
-    <HeroVisual />
-  </div>
 </section>
 
 <style>
+  /*
+    svh, а не vh. Різниця саме на телефоні: vh рахується без адресного
+    рядка браузера, і коли той ховається під час прокрутки, екран
+    смикається. svh бере найменший варіант і стоїть на місці.
+  */
   .hero {
+    position: relative;
+    min-height: 100svh;
     display: grid;
-    gap: 1.15rem;
-    /* Знизу відступ менший: градієнт і так згасає в білий,
-       а порожнеча між першим екраном і наступним блоком з'їдає прокрутку */
-    padding-bottom: calc(var(--section-y) * 0.6);
-    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
+    /* Вміст притиснутий донизу: подалі від шапки, ближче до краю,
+       від якого починається наступна секція */
+    align-content: end;
+    overflow: hidden;
   }
 
-  .hero__text {
+  .hero__media,
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+  }
+  .hero__media { z-index: 0; }
+  .hero__scrim { z-index: 1; background: var(--hero-scrim); }
+
+  /*
+    Заглушка намальована як картка з полями й радіусом. Тут вона
+    працює фоном, тож рамку, скруглення й обмеження висоти знімаємо.
+    Коли замість неї стане <Image>, це правило піде разом із нею.
+  */
+  .hero__media :global(.hv) {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hero__inner {
+    position: relative;
+    z-index: 2;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.15rem;
-    align-content: start;
+    gap: 1rem;
     justify-items: start;
+    /* Зверху — місце під шапку, яка лежить поверх фото (Задача 3) */
+    padding-block: calc(var(--hdr-h) + 1.25rem) clamp(1.75rem, 7vh, 3.5rem);
+    /* Той самий контейнер, що й у .band — щоб текст стояв по одній
+       вертикалі з рештою сторінки */
+    padding-inline: max(1rem, calc((100% - var(--container)) / 2));
+    color: var(--on-overlay);
   }
 
   .hero__title {
     margin: 0;
-    font-size: clamp(1.85rem, 7vw, 3rem);
-    line-height: 1.1;
-    letter-spacing: -0.03em;
+    /* Капс українською — це чотири-пʼять рядків на телефоні, тому
+       кегль нижчий за звичайний заголовок, а міжлітерний просвіт не
+       відʼємний: у капсі мінус злипає літери */
+    text-transform: uppercase;
+    font-size: clamp(1.4rem, 5.2vw, 2.6rem);
+    line-height: 1.14;
+    letter-spacing: 0;
     text-wrap: balance;
-    max-width: 18ch;
+    max-width: 26ch;
   }
 
   .hero__sub {
     margin: 0;
-    font-size: clamp(1.02rem, 3.4vw, 1.25rem);
+    font-size: clamp(0.98rem, 3.1vw, 1.12rem);
     line-height: 1.5;
-    color: var(--muted);
-    max-width: 38ch;
+    max-width: 46ch;
   }
 
   .hero__cta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.65rem;
-    margin-top: 0.35rem;
+    margin-top: 0.15rem;
   }
   .hero__cta .btn svg { width: 20px; height: 20px; flex: none; }
 
   .hero__trust {
     list-style: none;
-    margin: 0.35rem 0 0;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1.25rem;
+    gap: 0.45rem 1.15rem;
   }
   .hero__trust li {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.9rem;
-    color: var(--muted);
+    font-size: 0.88rem;
   }
-  .hero__trust svg { width: 17px; height: 17px; flex: none; color: var(--accent); }
-
-  .hero__visual { margin-top: 0.6rem; }
+  /* Іконка теж біла: акцентний синій по затемненому фото не читається */
+  .hero__trust svg { width: 17px; height: 17px; flex: none; color: var(--on-overlay); }
 
   @media (min-width: 768px) {
-    .hero { gap: 1.35rem; }
-    .hero__title { max-width: 16ch; }
-    .hero__sub { max-width: 46ch; }
+    .hero__inner { gap: 1.15rem; max-width: none; }
+    .hero__title { max-width: 24ch; }
   }
 
-  /* Дві колонки: текст ліворуч, зображення праворуч */
   @media (min-width: 900px) {
-    .hero {
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      column-gap: 3rem;
-      align-items: center;
-    }
-    .hero__text { gap: 1.35rem; }
-    .hero__title { max-width: 14ch; }
-    .hero__visual { margin-top: 0; }
+    .hero__inner { padding-block: calc(var(--hdr-h) + 2rem) clamp(2.5rem, 9vh, 5rem); }
   }
 </style>

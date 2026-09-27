@@ -187,8 +187,32 @@ const year = new Date().getFullYear();
         /* Ритм */
         --container: 62rem;
         --section-y: clamp(2.25rem, 6vw, 4rem);
+
+        /* Висота шапки. Живе токеном, бо на неї спираються три місця:
+           сама шапка, відступ першого екрана під нею і компенсація
+           якорів (scroll-padding-top). */
+        --hdr-h: 60px;
+
+        /*
+          Затемнення першого екрана. Не підгін під поточну картинку:
+          знімок замінять, і світле фото не має ламати текст. Щільність
+          розрахована на найгірший випадок — біле фото: навіть у
+          найсвітлішій точці (0.68) білий текст дає ~6:1.
+        */
+        --hero-scrim: linear-gradient(
+          180deg,
+          rgba(15, 23, 42, 0.82) 0%,
+          rgba(15, 23, 42, 0.68) 42%,
+          rgba(15, 23, 42, 0.78) 100%
+        );
+        /* Підсвітка кнопки поверх фото під курсором */
+        --on-photo-wash: rgba(255, 255, 255, 0.16);
       }
 
+      /* Рядок шапки на десктопі вищий — див. .hdr__inner */
+      @media (min-width: 768px) {
+        :root { --hdr-h: 68px; }
+      }
 
       *, *::before, *::after { box-sizing: border-box; }
 
@@ -215,10 +239,28 @@ const year = new Date().getFullYear();
         padding-bottom: 5rem;
       }
 
+      /* Шапка липка на всіх ширинах, тож якір не має ховатися під нею */
+      html { scroll-padding-top: calc(var(--hdr-h) + 0.5rem); }
+
       @media (min-width: 768px) {
         body { padding-bottom: 0; }
-        /* Шапка на десктопі липка, тож якір не має ховатися під нею */
-        html { scroll-padding-top: 5rem; }
+      }
+
+      /*
+        Привʼязка прокрутки — лише на межі першого екрана.
+
+        Точок дві: сам перший екран і початок наступної секції. Решта
+        сторінки не привʼязана взагалі: `proximity` притягує тільки
+        поблизу точки, а елементів із scroll-snap-align більше немає,
+        тож посеред довгого тексту ніщо не смикається.
+
+        Для тих, хто попросив зменшити рух, привʼязки немає зовсім:
+        різкий стрибок екрана при вестибулярних порушеннях — реальна
+        проблема, а не незручність.
+      */
+      @media (prefers-reduced-motion: no-preference) {
+        html { scroll-snap-type: y proximity; }
+        .hero, .hero + * { scroll-snap-align: start; }
       }
 
       img { max-width: 100%; height: auto; display: block; }
@@ -327,6 +369,19 @@ const year = new Date().getFullYear();
         color: var(--text);
       }
       .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+      /*
+        Друга кнопка першого екрана. Прозора навмисно: біла заливка
+        поруч із синьою давала дві однаково гучні кнопки, а головна
+        дія тут одна — дзвінок. Світла рамка — єдине, що на затемненому
+        фото робить її кнопкою.
+      */
+      .btn--on-photo {
+        background: transparent;
+        border-color: var(--on-overlay);
+        color: var(--on-overlay);
+      }
+      .btn--on-photo:hover { background: var(--on-photo-wash); }
 
       .btn--lg {
         min-height: 56px;
