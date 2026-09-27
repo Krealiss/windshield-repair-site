@@ -31,7 +31,6 @@ const contactsSchema = z.object({
 
 const coverageSchema = z.object({
   areas: z.array(z.string()).default([]),
-  travel_fee: z.number().int().min(0),
   radius_km: z.number().int().optional(),
   conditions: z.string().optional(),
 });

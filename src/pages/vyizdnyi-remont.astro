@@ -12,15 +12,10 @@ import type { HeroChip } from '../components/Hero.astro';
 const site = await loadSite('mobile');
 const { contacts, coverage, meta, phone, show } = site;
 
-const feeText =
-  coverage.travel_fee === 0
-    ? 'Виїзд безкоштовний'
-    : `Виїзд — ${coverage.travel_fee} грн`;
-
 // Ті самі «чіпи» першого екрана, що й на головній, але про виїзд:
-// скільки коштує дорога і як далеко їдемо
+// що ми приїжджаємо самі і як далеко їдемо
 const heroChips: HeroChip[] = [
-  { icon: 'car', text: feeText },
+  { icon: 'car', text: 'Приїдемо самі, з обладнанням' },
   ...(coverage.radius_km
     ? [{ icon: 'pin' as const, text: `до ${coverage.radius_km} км від міста` }]
     : [{ icon: 'pin' as const, text: contacts.address }]),
