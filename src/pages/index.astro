@@ -63,7 +63,13 @@ const nav = buildNav(show);
         (src/content/faq/tryvalist.yml), і розходитись вони не мають.
       */
       { icon: 'clock', text: 'Скол — 30–40 хвилин' },
-      { icon: 'pin', text: contacts.address },
+      /*
+        «або за вашою адресою» дописується тут, а не в contacts.yml:
+        саме поле address іде ще в розмітку для пошуковиків, у блок
+        «Майстерня і виїзд» і в меню, і там ця приписка була б або
+        неправдою, або сміттям у структурованих даних.
+      */
+      { icon: 'pin', text: `${contacts.address} або за вашою адресою` },
       ...(meta.guarantee ? [{ icon: 'shield' as const, text: meta.guarantee }] : []),
     ]}
   />
