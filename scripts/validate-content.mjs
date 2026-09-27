@@ -13,6 +13,7 @@
  *   — фотографії галереї: чи існує файл, чи правильний шлях,
  *     чи достатня коротка сторона
  *   — пороги показу блоків (галерея від 4 пар, відгуки від 3)
+ *   — шляхи, згадані в README: чи існують вони на диску (лише WARN)
  *
  * Решту — типи, обовʼязковість полів, межі значень — описують схеми
  * в src/content.config.ts і src/lib/site.ts.
@@ -179,6 +180,49 @@ for (const p of PLACEHOLDERS) {
   else warn(p.file, msg);
 }
 
+// ── 4. ШЛЯХИ, ЗГАДАНІ В README ─────────────────────────────
+/**
+ * README — головний вхід у проєкт, і його рецепти називають конкретні
+ * файли. Хтось переносить файл або перейменовує поле, рецепт лишається
+ * старим — і документ починає шкодити більше, ніж допомагав би його
+ * брак. Це вже траплялося, тому кожен шлях зі зворотних лапок
+ * перевіряємо на диску.
+ *
+ * Рівень — тільки попередження: розбіжність у документації не має
+ * спиняти випуск сайту.
+ *
+ * Беремо не все підряд, а те, що справді схоже на шлях у проєкті:
+ *   — без пробілів (це команди: `npm run build`)
+ *   — без «*» (глоби на кшталт src/content/*.yml) і без «…»
+ *   — не адреса (`http://localhost:4321`) і не те, що починається
+ *     зі скісної риски: там URL сайту (`/thanks/`) і команди
+ *     Telegram (`/newbot`)
+ *   — і при цьому або з відомим розширенням, або зі скісною рискою
+ *     всередині; решта зворотних лапок — це назви полів і значення
+ */
+const README = 'README.md';
+const KNOWN_EXT = /\.(mjs|astro|yml|yaml|json|ts|md|txt)$/;
+let readmePaths = 0;
+
+if (existsSync(README)) {
+  const readme = await readFile(README, 'utf8');
+  const checked = new Set();
+
+  for (const [, found] of readme.matchAll(/`([^`\n]+)`/g)) {
+    const path = found.trim();
+    if (checked.has(path)) continue;
+    if (/[\s*…]/.test(path)) continue;
+    if (path.includes('://') || path.startsWith('/')) continue;
+    if (!path.includes('/') && !KNOWN_EXT.test(path)) continue;
+
+    checked.add(path);
+    readmePaths += 1;
+    if (!existsSync(path)) {
+      warn(README, `посилається на "${path}" — такого файлу в проєкті немає`);
+    }
+  }
+}
+
 // ── звіт ──────────────────────────────────────────────────
 const line = '─'.repeat(58);
 console.log(`\n${line}\nПеревірка контенту — режим: ${PROD ? 'ПРОДАКШН' : "прев'ю"}\n${line}`);
@@ -197,7 +241,7 @@ if (!warns.length && !errors.length) {
 
 console.log(
   `\nСтатистика: пар у галереї ${published.length}/${gallery.length}, ` +
-    `відгуків ${reviews.length}\n`
+    `відгуків ${reviews.length}, перевірено шляхів із README ${readmePaths}\n`
 );
 
 if (errors.length && PROD) {
