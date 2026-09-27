@@ -71,11 +71,11 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
           <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
         </svg>
-        <span>{formatPhone(phone)}</span>
+        <span class="hero__num">{formatPhone(phone)}</span>
       </a>
 
       <a class="btn btn--on-photo" href="#lead" data-cta="hero_form">
-        Надіслати фото сколу
+        Надіслати фото
       </a>
     </div>
 
@@ -192,13 +192,44 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     max-width: 46ch;
   }
 
+  /*
+    Дві кнопки в ряд на будь-якій ширині — так у макеті замовника.
+
+    Не flex із переносом, а грид у дві колонки: перенос ламав саме те,
+    заради чого макет робився. Колонки нерівні — головній кнопці
+    потрібно більше, бо в ній номер телефона, а він не переноситься.
+
+    Кегль і поля на телефоні зменшені й ростуть із шириною: інакше
+    номер поруч із другою кнопкою не влазить навіть у 375px.
+  */
   .hero__cta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 0.55rem;
+    width: 100%;
+    max-width: 32rem;
     margin-top: 0.15rem;
   }
+  .hero__cta .btn {
+    /* Без цього грид-елемент не стискається нижче свого вмісту
+       і колонки розʼїжджаються за межі екрана */
+    min-width: 0;
+    padding-inline: 0.7rem;
+    text-align: center;
+    line-height: 1.2;
+  }
   .hero__cta .btn svg { width: 20px; height: 20px; flex: none; }
+
+  .hero__cta .btn--lg { font-size: clamp(0.95rem, 4.3vw, 1.2rem); }
+  .hero__cta .btn--on-photo { font-size: clamp(0.85rem, 3.3vw, 1rem); }
+
+  /* Номер не розривається по пробілах між групами цифр */
+  .hero__num { white-space: nowrap; }
+
+  /* На найвужчих екранах іконка забирає місце, потрібне номеру */
+  @media (max-width: 359px) {
+    .hero__cta .btn--lg svg { display: none; }
+  }
 
   .hero__trust {
     list-style: none;
