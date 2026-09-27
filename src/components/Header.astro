@@ -91,9 +91,19 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
     */
     z-index: 60;
     background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    /*
+      Лінія знизу — внутрішньою тінню, а не рамкою.
+
+      Рамка додає свій піксель до висоти шапки, а підтягування
+      .hdr--over рахується рівно на --hdr-h. Через цю різницю в один
+      піксель при завантаженні сторінки над фотографією світилась
+      біла смужка тла, яка зникала після прокрутки — бо суцільна
+      шапка її накривала. Тінь місця не займає, тож висота шапки
+      тепер точно дорівнює --hdr-h.
+    */
+    box-shadow: inset 0 -1px 0 var(--border);
     padding-inline: max(1rem, calc((100% - var(--container)) / 2));
-    transition: background-color 0.2s ease-out, border-color 0.2s ease-out,
+    transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out,
                 color 0.2s ease-out;
   }
 
@@ -115,14 +125,14 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
   .hdr--over {
     margin-bottom: calc(-1 * var(--hdr-h));
     background: transparent;
-    border-bottom-color: transparent;
+    box-shadow: none;
   }
   /* Колір успадковують і назва, і посилання, і кнопка бургера */
   .hdr--over .hdr__inner { color: var(--on-overlay); }
 
   .hdr--over[data-solid='true'] {
     background: var(--surface);
-    border-bottom-color: var(--border);
+    box-shadow: inset 0 -1px 0 var(--border);
   }
   .hdr--over[data-solid='true'] .hdr__inner { color: var(--text); }
 
