@@ -1,0 +1,330 @@
+---
+import { formatPhone, telHref, viberHref, telegramHref } from '../lib/format';
+import SocialIcon from './SocialIcon.astro';
+import type { NavItem } from '../lib/nav';
+
+/**
+ * Бургер і панель меню.
+ *
+ * Чому окремий файл, а не всередині Header.astro: тут кнопка,
+ * накладка, стилі й уся доступність меню — разом це більше, ніж
+ * решта шапки. Шапка лишається шапкою.
+ *
+ * Панель — position: fixed усередині шапки. Працює це тому, що
+ * position: sticky не створює контейнера для fixed-нащадків, і панель
+ * позиціюється від вікна. А накрити нижню липку панель вона може
+ * тільки завдяки z-index: 60 у .hdr — див. коментар там.
+ *
+ * Доступність — основна робота в цьому файлі, і кожен рядок нижче
+ * прибирає конкретну поломку, а не перестраховується:
+ *   aria-expanded          читалка каже «згорнуто/розгорнуто»
+ *   фокус у панель         інакше клавіатура лишається невідомо де
+ *   Escape                 очікувана поведінка будь-якої накладки
+ *   фокус назад на кнопку  інакше людина опиняється на початку сторінки
+ *   пастка фокуса          інакше Tab іде по посиланнях під накладкою
+ *   блок прокрутки         інакше тло їде при свайпі
+ *
+ * Закрита панель — visibility: hidden. Цього достатньо, щоб її не
+ * бачила ні читалка екрана, ні Tab: hidden і inert не потрібні.
+ */
+interface Props {
+  items: NavItem[];
+  phone?: string;
+  viber?: string;
+  telegram?: string;
+  address?: string;
+}
+
+const { items, phone, viber, telegram, address } = Astro.props;
+---
+
+<button
+  class="burger"
+  type="button"
+  id="nav-toggle"
+  aria-expanded="false"
+  aria-controls="nav-panel"
+  aria-label="Меню"
+>
+  <svg class="burger__bars" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+  </svg>
+  <svg class="burger__cross" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+  </svg>
+</button>
+
+<div class="nav" id="nav-panel" data-open="false">
+  <div class="nav__scrim" data-nav-close aria-hidden="true"></div>
+
+  <nav class="nav__panel" aria-label="Меню сайту">
+    <ul class="nav__list">
+      {items.map((i) => (
+        <li><a href={i.href} data-nav-link>{i.label}</a></li>
+      ))}
+    </ul>
+
+    <div class="nav__contact">
+      {phone && (
+        <a class="nav__phone" href={telHref(phone)} data-cta="menu" data-phone>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 013 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2z"></path>
+          </svg>
+          <span>{formatPhone(phone)}</span>
+        </a>
+      )}
+
+      {(viber || telegram) && (
+        <div class="nav__social">
+          {viber && (
+            <a class="nav__soc nav__soc--viber" href={viberHref(viber)} data-cta="menu" aria-label="Написати у Viber">
+              <SocialIcon kind="viber" />
+            </a>
+          )}
+          {telegram && (
+            <a class="nav__soc nav__soc--telegram" href={telegramHref(telegram)} data-cta="menu" aria-label="Написати в Telegram">
+              <SocialIcon kind="telegram" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {address && <p class="nav__addr">{address}</p>}
+
+      <a class="nav__legal" href="/polityka-konfidentsiynosti/">Політика конфіденційності</a>
+    </div>
+  </nav>
+</div>
+
+<style>
+  .burger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 44px — мінімальна ціль дотику */
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    /* Колір приходить від .hdr__inner: над фото світлий, після — темний */
+    color: inherit;
+    cursor: pointer;
+  }
+  .burger svg { width: 26px; height: 26px; }
+
+  .burger__cross { display: none; }
+  .burger[aria-expanded='true'] .burger__bars { display: none; }
+  .burger[aria-expanded='true'] .burger__cross { display: block; }
+
+  /* Від 1000px посилання стоять просто в шапці — кнопка не потрібна.
+     Число не 768: сім пунктів українською в рядок туди не вміщаються,
+     див. Header.astro */
+  @media (min-width: 1000px) {
+    .burger { display: none; }
+  }
+
+  .nav {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    justify-items: end;
+    visibility: hidden;
+    opacity: 0;
+    /* Затримка саме на visibility: інакше панель зникає, не догорівши.
+       pointer-events знімаємо одразу — щоб закрита, але ще видима
+       накладка не перехоплювала дотик */
+    pointer-events: none;
+    transition: opacity 0.2s ease-out, visibility 0s linear 0.2s;
+  }
+  .nav[data-open='true'] {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.2s ease-out;
+  }
+
+  .nav__scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--overlay);
+  }
+
+  .nav__panel {
+    position: relative;
+    width: min(21rem, 100%);
+    height: 100%;
+    overflow-y: auto;
+    /* Дотягнувши панель до краю, не гортаємо сторінку під нею */
+    overscroll-behavior: contain;
+    padding: calc(var(--hdr-h) + 1rem) 1.25rem
+             calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    /* Колір задається явно: панель лежить усередині шапки, а та над
+       фото робить вміст білим — білий текст на білій панелі */
+    color: var(--text);
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: 1.5rem;
+    align-content: start;
+    transform: translateX(5%);
+    transition: transform 0.2s ease-out;
+  }
+  .nav[data-open='true'] .nav__panel { transform: translateX(0); }
+
+  /*
+    Окремого правила під «зменшити рух» тут немає навмисно: глобальне
+    в Base.astro уже зводить transition-duration до 0.01ms для всього
+    на сторінці. Друга копія того самого правила розійдеться з першою.
+  */
+
+  .nav__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+  }
+  .nav__list a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav__list li:last-child a { border-bottom: 0; }
+
+  .nav__contact { display: grid; gap: 0.9rem; justify-items: start; }
+
+  .nav__phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .nav__phone svg { width: 20px; height: 20px; flex: none; }
+
+  .nav__social { display: flex; gap: 0.5rem; }
+
+  .nav__soc {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    min-width: 48px;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    text-decoration: none;
+  }
+
+  /*
+    Ті самі фірмові кольори, що в Contacts.astro і StickyCall.astro:
+    колір розтягнутий по рамці кнопки, а не лишений дрібним кубиком
+    іконки. Telegram темніший за офіційний #2AABEE навмисно —
+    див. коментар у SocialIcon.astro.
+  */
+  .nav__soc--viber { border-color: #7360F2; }
+  .nav__soc--telegram { border-color: #1088C6; }
+
+  .nav__addr { margin: 0; font-size: 0.94rem; color: var(--muted); }
+
+  .nav__legal {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+</style>
+
+<script>
+  const toggle = document.getElementById('nav-toggle');
+  const panel = document.getElementById('nav-panel');
+
+  if (toggle && panel) {
+    const FOCUSABLE = 'a[href], button:not([disabled])';
+    const wide = window.matchMedia('(min-width: 1000px)');
+    let lastFocused: HTMLElement | null = null;
+
+    const isOpen = () => panel.dataset.open === 'true';
+
+    const open = () => {
+      lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      panel.dataset.open = 'true';
+      toggle.setAttribute('aria-expanded', 'true');
+      document.documentElement.classList.add('nav-open');
+
+      // Фокус у панель: інакше людина з клавіатурою лишається
+      // невідомо де, і наступний Tab іде по сторінці під накладкою
+      const first = panel.querySelector(FOCUSABLE);
+      if (first instanceof HTMLElement) first.focus();
+    };
+
+    const close = (returnFocus = true) => {
+      panel.dataset.open = 'false';
+      toggle.setAttribute('aria-expanded', 'false');
+      document.documentElement.classList.remove('nav-open');
+      if (returnFocus) (lastFocused ?? toggle).focus();
+    };
+
+    toggle.addEventListener('click', () => (isOpen() ? close() : open()));
+
+    panel.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.closest('[data-nav-close]')) {
+        close();
+        return;
+      }
+
+      // Пункт меню — якір на цій самій сторінці. Без закриття людина
+      // лишилась би дивитись на меню замість секції. Фокус назад на
+      // кнопку тут не повертаємо: він має піти за посиланням.
+      if (target.closest('[data-nav-link]')) close(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!isOpen()) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      // Пастка фокуса. Очима вона не видна — тільки з клавіатури
+      const items = Array.from(panel.querySelectorAll(FOCUSABLE)).filter(
+        (el): el is HTMLElement => el instanceof HTMLElement && el.offsetParent !== null
+      );
+      if (items.length === 0) return;
+
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    // Від 1000px кнопка бургера зникає. Якби панель лишилась
+    // відкритою після повороту телефона чи зміни розміру вікна,
+    // закрити її було б нічим
+    wide.addEventListener('change', (e) => {
+      if (e.matches && isOpen()) close(false);
+    });
+  }
+</script>

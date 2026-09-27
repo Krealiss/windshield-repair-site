@@ -123,6 +123,8 @@ order: 10             # менше число — вище в списку
 | Блок на сайті | Файл |
 |---|---|
 | Шапка (логотип, навігація, кнопка дзвінка) | `src/components/Header.astro` |
+| Меню на телефоні (панель, контакти в ній, політика) | `src/components/NavMenu.astro` |
+| Перелік пунктів меню і їхні підписи | `src/lib/nav.ts` |
 | Перший екран | `src/components/Hero.astro` |
 | «Ремонт замість заміни» | `src/components/RepairVsReplace.astro` |
 | «Як це відбувається» | `src/components/Process.astro` |

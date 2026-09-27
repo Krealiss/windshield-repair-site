@@ -1,5 +1,7 @@
 ---
 import { formatPhone, telHref } from '../lib/format';
+import NavMenu from './NavMenu.astro';
+import type { NavItem } from '../lib/nav';
 
 /**
  * Шапка сайту. Липка на всіх ширинах.
@@ -27,8 +29,12 @@ import { formatPhone, telHref } from '../lib/format';
 interface Props {
   phone?: string;
   overHero?: boolean;
+  nav?: NavItem[];
+  viber?: string;
+  telegram?: string;
+  address?: string;
 }
-const { phone, overHero = false } = Astro.props;
+const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.props;
 ---
 
 <header class:list={['hdr', overHero && 'hdr--over']} data-solid={overHero ? 'false' : 'true'}>
@@ -50,6 +56,14 @@ const { phone, overHero = false } = Astro.props;
       <span class="hdr__name">Автоскло</span>
     </a>
 
+    {nav.length > 0 && (
+      <ul class="hdr__links">
+        {nav.map((i) => (
+          <li><a href={i.href}>{i.short}</a></li>
+        ))}
+      </ul>
+    )}
+
     {phone && (
       <a class="btn btn--primary hdr__call" href={telHref(phone)} data-cta="header" data-phone>
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
@@ -57,6 +71,10 @@ const { phone, overHero = false } = Astro.props;
         </svg>
         <span>{formatPhone(phone)}</span>
       </a>
+    )}
+
+    {nav.length > 0 && (
+      <NavMenu items={nav} phone={phone} viber={viber} telegram={telegram} address={address} />
     )}
   </div>
 </header>
@@ -132,6 +150,37 @@ const { phone, overHero = false } = Astro.props;
   /* Телефон у шапці — рівно там, де зникає нижня панель */
   .hdr__call { display: none; }
   .hdr__call svg { width: 18px; height: 18px; flex: none; }
+
+  /*
+    Посилання просто в шапці — від 1000px, не від 768px.
+
+    Виміряно: сім пунктів скороченими підписами беруть близько 560px,
+    плюс логотип і кнопка телефона — це понад 900px при контейнері
+    992px. На 768px вони не вміщаються, а стиснута навігація гірша за
+    бургер. До 1000px працює кнопка меню (NavMenu.astro).
+  */
+  .hdr__links { display: none; }
+
+  @media (min-width: 1000px) {
+    .hdr__links {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      margin: 0 0.9rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .hdr__links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      color: inherit;
+      text-decoration: none;
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+    .hdr__links a:hover { text-decoration: underline; }
+  }
 
   @media (min-width: 768px) {
     .hdr { padding-inline: max(1.5rem, calc((100% - var(--container)) / 2)); }

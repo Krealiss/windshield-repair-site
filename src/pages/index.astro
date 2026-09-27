@@ -12,12 +12,25 @@ import Faq from '../components/Faq.astro';
 import LeadForm from '../components/LeadForm.astro';
 import Contacts from '../components/Contacts.astro';
 import { loadSite } from '../lib/site';
+import { buildNav } from '../lib/nav';
 
 const site = await loadSite();
 const { contacts, meta, phone, show } = site;
+
+// Пункти меню — з того, що реально відрисовано нижче
+const nav = buildNav(show);
 ---
 
-<Base title={meta.seo_title} description={meta.seo_description} phone={phone} overHero>
+<Base
+  title={meta.seo_title}
+  description={meta.seo_description}
+  phone={phone}
+  overHero
+  nav={nav}
+  viber={contacts.viber}
+  telegram={contacts.telegram}
+  address={contacts.address}
+>
   <SchemaOrg slot="head" site={site} />
   <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
 
