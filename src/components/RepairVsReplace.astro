@@ -2,14 +2,8 @@
 /**
  * «Ремонт чи заміна» — найважливіший текстовий блок сайту.
  *
- * Він робить дві речі одночасно:
- *   1. Продає ремонт проти заміни (дешевше, швидше, заводське скло)
- *   2. Чесно каже, коли ремонт неможливий
- *
- * Другий пункт виглядає як втрата клієнтів, але працює навпаки:
- * людина, яка прочитала обмеження і все одно подзвонила, вже
- * прогріта. А людина, якій пообіцяли неможливе, приїде, отримає
- * відмову і напише негативний відгук.
+ * Продає ремонт проти заміни: дешевше, швидше, заводське скло
+ * лишається на місці.
  *
  * Тексти захардкожені навмисно — це позиціювання, а не контент.
  * Власник не має правити їх на ходу.
@@ -33,14 +27,6 @@ const advantages = [
     text: 'Головна задача — зупинити тріщину, поки вона не пішла через усе скло від вібрації чи перепаду температур.',
   },
 ];
-
-const limits = [
-  'Тріщина починається від краю скла',
-  'Пошкодження в зоні прямого огляду водія',
-  'Скол більший за 5-гривневу монету',
-  'Скол давній, забився брудом і вологою',
-  'Пошкоджений внутрішній шар триплексу',
-];
 ---
 
 <section class="band band--alt rvr">
@@ -61,17 +47,6 @@ const limits = [
     ))}
   </ul>
 
-  <div class="rvr__limits">
-    <h3>Коли ремонт не допоможе</h3>
-    <ul>
-      {limits.map((l) => <li>{l}</li>)}
-    </ul>
-    <p class="rvr__note">
-      Якщо ваш випадок у цьому списку — скажу відразу, і ви не витратите час
-      на дорогу. Надішліть фото, і я відповім чесно.
-    </p>
-  </div>
-
   <p class="rvr__expect">
     <strong>Про результат чесно:</strong> скол не зникає безслідно. Залишається
     ледь помітна точка, яку не видно з водійського місця. Задача ремонту —
@@ -81,7 +56,6 @@ const limits = [
 
 <style>
   .rvr { display: grid; gap: 1.5rem; }
-  .rvr h3 { margin: 0 0 0.6rem; font-size: 1.05rem; letter-spacing: -0.01em; }
 
   .rvr__adv { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
   .rvr__adv li { display: grid; grid-template-columns: 24px 1fr; gap: 0.7rem; align-items: start; }
@@ -89,32 +63,6 @@ const limits = [
   .rvr__adv div { display: grid; gap: 0.2rem; }
   .rvr__adv strong { font-size: 1rem; letter-spacing: -0.01em; }
   .rvr__adv span { font-size: 0.94rem; line-height: 1.55; color: var(--muted); }
-
-  .rvr__limits {
-    padding: 1.15rem;
-    border-radius: var(--r);
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
-  .rvr__limits ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
-  .rvr__limits li {
-    position: relative;
-    padding-left: 1.4rem;
-    font-size: 0.94rem;
-    line-height: 1.5;
-  }
-  /* Риска замість маркера: список обмежень, а не переваг */
-  .rvr__limits li::before {
-    content: '';
-    position: absolute;
-    left: 0.15rem;
-    top: 0.68em;
-    width: 0.7rem;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--rule);
-  }
-  .rvr__note { margin: 0.9rem 0 0; font-size: 0.9rem; line-height: 1.55; color: var(--muted); }
 
   .rvr__expect {
     margin: 0;
