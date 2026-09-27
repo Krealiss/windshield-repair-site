@@ -28,7 +28,7 @@ import heroPhoto from '../assets/lobove.png';
  *   id="hero-phone" — за кнопкою стежить нижня панель (StickyCall.astro)
  */
 export type HeroChip = {
-  icon: 'pin' | 'shield' | 'car';
+  icon: 'pin' | 'shield' | 'car' | 'clock';
   text: string;
 };
 
@@ -74,6 +74,21 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
 
   <div class="hero__scrim" aria-hidden="true"></div>
 
+  <!--
+    Підказка, що сторінка триває далі. Перший екран заввишки рівно
+    в екран без неї читається як уся сторінка — тим більше, що знизу
+    лишається порожнє фото.
+
+    aria-hidden і pointer-events: none навмисно: це сигнал, а не
+    кнопка. Зробити з нього посилання означало б додати клавіатурі
+    ще одну зупинку, яка веде туди ж, куди й перший пункт меню.
+  -->
+  <div class="hero__more" aria-hidden="true">
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  </div>
+
   <div class="hero__inner">
     <h1 class="hero__title">{h1}</h1>
 
@@ -106,6 +121,12 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M12 3l7 3v6c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
                 <path d="M8.7 12.2l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            )}
+            {c.icon === 'clock' && (
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+                <path d="M12 7.3V12l3.2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             )}
             {c.icon === 'car' && (
@@ -155,6 +176,36 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
   .hero__media { z-index: 0; }
   .hero__scrim { z-index: 1; background: var(--hero-scrim); }
 
+  .hero__more {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(0.75rem, 2.5vh, 1.5rem);
+    z-index: 2;
+    transform: translateX(-50%);
+    pointer-events: none;
+    color: var(--on-overlay);
+    opacity: 0.8;
+  }
+  .hero__more svg {
+    display: block;
+    width: 28px;
+    height: 28px;
+    animation: hero-more 2.4s ease-in-out infinite;
+  }
+  @keyframes hero-more {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(5px); }
+  }
+
+  /*
+    На низькому екрані (телефон у горизонталі) вміст підходить
+    майже до краю — підказка там або налізе на чіпи, або
+    відбере в них місце.
+  */
+  @media (max-height: 600px) {
+    .hero__more { display: none; }
+  }
+
   /*
     Знімок покриває шар цілком і обрізається по краях, а не
     вписується з полями: це фон, а не ілюстрація.
@@ -174,7 +225,14 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     position: relative;
     z-index: 2;
     display: grid;
-    gap: 1rem;
+    /*
+      Відступи навмисно нерівні. З однаковими проміжками заголовок,
+      підзаголовок, кнопки й чіпи читались як чотири окремі плями,
+      і око не мало шляху. Тепер це дві групи: «що і де» вгорі,
+      «що зробити» внизу, і більший проміжок між ними веде погляд
+      саме до кнопки дзвінка.
+    */
+    gap: 0.7rem;
     justify-items: start;
     /* Симетрично: місце під шапку дає сама секція, тут поля лише
        щоб вміст не впирався в краї, коли не вміщається в екран */
@@ -221,7 +279,9 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     gap: 0.55rem;
     width: 100%;
     max-width: 32rem;
-    margin-top: 0.15rem;
+    /* Розрив між текстом і дією — найбільший на екрані: саме він
+       робить кнопку дзвінка наступним, куди дивиться око */
+    margin-top: 0.85rem;
   }
   .hero__cta .btn {
     /* Без цього грид-елемент не стискається нижче свого вмісту
@@ -244,6 +304,7 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     .hero__cta .btn--lg svg { display: none; }
   }
 
+  /* Чіпи належать кнопкам, а не тексту — тому тримаються за них щільно */
   .hero__trust {
     list-style: none;
     margin: 0;

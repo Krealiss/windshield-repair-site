@@ -56,6 +56,13 @@ const nav = buildNav(show);
     subtitle={meta.hero_subtitle}
     phone={phone}
     chips={[
+      /*
+        Час — перший за силою чіп: «гарантія» і адреса нічого не
+        обіцяють людині, яка вирішує, дзвонити чи ні, а «30–40 хвилин»
+        обіцяє. Число не нове: те саме стоїть у відповідях на питання
+        (src/content/faq/tryvalist.yml), і розходитись вони не мають.
+      */
+      { icon: 'clock', text: 'Скол — 30–40 хвилин' },
       { icon: 'pin', text: contacts.address },
       ...(meta.guarantee ? [{ icon: 'shield' as const, text: meta.guarantee }] : []),
     ]}

@@ -256,6 +256,15 @@ const year = new Date().getFullYear();
         );
         /* Підсвітка кнопки поверх фото під курсором */
         --on-photo-wash: rgba(255, 255, 255, 0.16);
+        /*
+          Рамка другої кнопки першого екрана. Напівпрозора навмисно:
+          суцільно біла рамка робила другу кнопку майже такою ж
+          гучною, як кнопку дзвінка, а ціль сторінки — саме дзвінок.
+          0.62 — не на око: навіть поверх найсвітлішого можливого фото
+          ця рамка дає контраст 3.5:1 при нормі 3:1 для елементів
+          інтерфейсу (WCAG 1.4.11). Нижче опускати не можна.
+        */
+        --on-photo-line: rgba(255, 255, 255, 0.62);
       }
 
       /* Рядок шапки на десктопі вищий — див. .hdr__inner */
@@ -444,7 +453,7 @@ const year = new Date().getFullYear();
       */
       .btn--on-photo {
         background: transparent;
-        border-color: var(--on-overlay);
+        border-color: var(--on-photo-line);
         color: var(--on-overlay);
       }
       .btn--on-photo:hover { background: var(--on-photo-wash); }
