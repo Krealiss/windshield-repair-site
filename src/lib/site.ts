@@ -30,7 +30,7 @@ const contactsSchema = z.object({
 });
 
 const coverageSchema = z.object({
-  radius_km: z.number().int().optional(),
+  areas: z.array(z.string().min(1)).default([]),
   conditions: z.string().optional(),
 });
 
