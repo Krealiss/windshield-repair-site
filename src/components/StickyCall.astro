@@ -40,14 +40,31 @@ const { phone, viber, telegram } = Astro.props;
     <span>Подзвонити</span>
   </a>
 
+  <!--
+    Іконки замість підписів: три написи поруч з'їдали ширину головної
+    кнопки, а важлива тут вона. Назви лишилися в aria-label — візуально
+    тексту немає, але для читалки екрана це єдине, чим одне посилання
+    відрізняється від іншого.
+
+    Малюємо інлайном: зовнішній файл — запит перед першим рендером,
+    шрифт іконок — сотні кілобайтів заради двох символів.
+  -->
   {viber && (
     <a class="sticky-call__alt" href={viberHref(viber)} data-cta="sticky" aria-label="Написати у Viber">
-      Viber
+      <!-- Трубка в закругленому квадраті: за цією формою Viber і пізнають -->
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="3.1" y="2.6" width="17.8" height="17.8" rx="5.6" fill="none" stroke="currentColor" stroke-width="1.8"></rect>
+        <path d="M9.8 7.4c.55-.22 1.18.02 1.45.55l.7 1.37c.24.48.1 1.07-.34 1.38l-.42.3a5.9 5.9 0 003.06 3.06l.3-.42c.31-.44.9-.58 1.38-.34l1.37.7c.53.27.77.9.55 1.45-.3.76-1.06 1.23-1.87 1.15-3.6-.36-6.46-3.22-6.82-6.82-.08-.81.39-1.57 1.15-1.87z" fill="currentColor"></path>
+      </svg>
     </a>
   )}
   {telegram && (
     <a class="sticky-call__alt" href={telegramHref(telegram)} data-cta="sticky" aria-label="Написати в Telegram">
-      Telegram
+      <!-- Паперовий літачок: контур плюс лінія згину, інакше на 22px це просто трикутник -->
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.4 2.6 14.6 21.5 10.8 13.2 2.5 9.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+        <path d="M21.4 2.6 10.8 13.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
     </a>
   )}
 </div>
@@ -100,17 +117,29 @@ const { phone, viber, telegram } = Astro.props;
     text-decoration: none;
   }
 
+  /*
+    Кнопка без тексту все одно мусить лишатися ціллю для пальця:
+    48px по обох вимірах — той самий мінімум, що й у головної кнопки.
+    padding тут не допоміг би, бо ширину задає вже не напис, а іконка.
+  */
   .sticky-call__alt {
     display: flex;
     align-items: center;
+    justify-content: center;
     min-height: 48px;
-    padding: 0 0.9rem;
+    min-width: 48px;
+    padding: 0 0.7rem;
     border: 1px solid var(--border);
     border-radius: var(--r);
+    /* Іконки малюються currentColor — колір задається тут, в одному місці */
     color: var(--text);
-    font-size: 0.9rem;
-    font-weight: 500;
     text-decoration: none;
+  }
+
+  .sticky-call__alt svg {
+    width: 22px;
+    height: 22px;
+    flex: none;
   }
 </style>
 
