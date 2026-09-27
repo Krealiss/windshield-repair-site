@@ -2,7 +2,7 @@ import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
 /**
- * Типізація контенту, який редагує CMS.
+ * Типізація контенту сайту: сторінки, послуги, галерея тощо.
  *
  * Розподіл відповідальності:
  *   validate-content.mjs → бізнес-правила, зрозумілі помилки українською,

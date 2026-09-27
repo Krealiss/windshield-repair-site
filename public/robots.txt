@@ -5,4 +5,4 @@ Allow: /
 # на неї з пошуку замість головної
 Disallow: /thanks/
 
-Sitemap: https://example.com.ua/sitemap-index.xml
+Sitemap: https://avtoskloua.com/sitemap-index.xml

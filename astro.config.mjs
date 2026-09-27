@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: 'https://example.com.ua',   // ← замінити на реальний домен
+  site: 'https://avtoskloua.com',
 
   // Один канонічний варіант URL. Без цього /vyizdnyi-remont і
   // /vyizdnyi-remont/ стануть двома сторінками з однаковим вмістом.
