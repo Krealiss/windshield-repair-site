@@ -40,12 +40,12 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat}
       -->
       <div class="cnt__msg">
         {contacts.viber && (
-          <a class="cnt__social" href={viberHref(contacts.viber)} data-cta="contacts" aria-label="Написати у Viber">
+          <a class="cnt__social cnt__social--viber" href={viberHref(contacts.viber)} data-cta="contacts" aria-label="Написати у Viber">
             <SocialIcon kind="viber" />
           </a>
         )}
         {contacts.telegram && (
-          <a class="cnt__social" href={telegramHref(contacts.telegram)} data-cta="contacts" aria-label="Написати в Telegram">
+          <a class="cnt__social cnt__social--telegram" href={telegramHref(contacts.telegram)} data-cta="contacts" aria-label="Написати в Telegram">
             <SocialIcon kind="telegram" />
           </a>
         )}
@@ -105,9 +105,19 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${contacts.lat}
     padding: 0 0.7rem;
     border: 1px solid var(--border);
     border-radius: var(--r);
-    /* Кольори іконок фіксовані в SocialIcon.astro (фірмові), тут керувати нічим */
     text-decoration: none;
   }
+
+  /*
+    Замовник: іконка була дрібна й губилась у сірій рамці — колір
+    бренду тепер на самій межі кнопки, а не лише в кубику іконки.
+    Кольори месенджерів фіксовані навмисно (не токен палітри — це
+    чужі бренди, той самий виняток, що й у SocialIcon.astro).
+    Telegram навмисно темніший за офіційний #2AABEE — див. коментар
+    у SocialIcon.astro про контраст 3:1.
+  */
+  .cnt__social--viber { border-color: #7360F2; }
+  .cnt__social--telegram { border-color: #1088C6; }
 
   .cnt__addr { margin: 0; display: grid; gap: 0.3rem; font-size: 0.95rem; }
   .cnt__addr a { color: var(--accent); justify-self: start; text-decoration: none; font-weight: 500; }

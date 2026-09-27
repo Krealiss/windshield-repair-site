@@ -50,12 +50,12 @@ const { phone, viber, telegram } = Astro.props;
     рамка, розмір цілі дотику, aria-label.
   -->
   {viber && (
-    <a class="sticky-call__alt" href={viberHref(viber)} data-cta="sticky" aria-label="Написати у Viber">
+    <a class="sticky-call__alt sticky-call__alt--viber" href={viberHref(viber)} data-cta="sticky" aria-label="Написати у Viber">
       <SocialIcon kind="viber" />
     </a>
   )}
   {telegram && (
-    <a class="sticky-call__alt" href={telegramHref(telegram)} data-cta="sticky" aria-label="Написати в Telegram">
+    <a class="sticky-call__alt sticky-call__alt--telegram" href={telegramHref(telegram)} data-cta="sticky" aria-label="Написати в Telegram">
       <SocialIcon kind="telegram" />
     </a>
   )}
@@ -123,13 +123,20 @@ const { phone, viber, telegram } = Astro.props;
     padding: 0 0.7rem;
     border: 1px solid var(--border);
     border-radius: var(--r);
-    /* Кольори іконок фіксовані в SVG (фірмові), тут керувати нічим */
     text-decoration: none;
   }
 
+  /*
+    Той самий фірмовий колір, що й у Contacts.astro — рамка кнопки
+    замість дрібного кольорового кубика іконки. Telegram темніший за
+    офіційний #2AABEE навмисно, див. коментар у SocialIcon.astro.
+  */
+  .sticky-call__alt--viber { border-color: #7360F2; }
+  .sticky-call__alt--telegram { border-color: #1088C6; }
+
   .sticky-call__alt svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex: none;
   }
 </style>

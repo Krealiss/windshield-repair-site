@@ -12,6 +12,13 @@
  *
  * Кольори чужих брендів фіксовані тут навмисно: вони не залежать від
  * теми сайту й не мають потрапляти в токени палітри.
+ *
+ * Колір Telegram — не офіційний #2AABEE, а темніший відтінок того
+ * самого синього (#1088C6). Причина: рамка кнопки навколо іконки
+ * тепер теж цього кольору (Contacts.astro, StickyCall.astro), а
+ * #2AABEE на білому тлі дає контраст ~2.6:1 — нижче норми 3:1 для
+ * елементів інтерфейсу (WCAG 1.4.11). Темніший відтінок лишається
+ * впізнаваним як Telegram і проходить поріг.
  */
 export type SocialIconKind = 'viber' | 'telegram';
 
@@ -30,16 +37,16 @@ const { kind } = Astro.props;
 )}
 {kind === 'telegram' && (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <circle cx="12" cy="12" r="12" fill="#2AABEE"></circle>
+    <circle cx="12" cy="12" r="12" fill="#1088C6"></circle>
     <path d="M18.4 6.4 5.9 11.3c-.5.2-.5.9 0 1.1l3 1 1.2 3.7c.2.5.8.6 1.1.2l1.6-1.7 3.2 2.4c.4.3 1 .1 1.1-.4l2.1-9.9c.1-.6-.5-1.1-1-.8z" fill="#fff"></path>
-    <path d="M9.7 13.9 16 9.4c.3-.2.6.1.3.4l-5.2 4.9-.2 2.1z" fill="#2AABEE"></path>
+    <path d="M9.7 13.9 16 9.4c.3-.2.6.1.3.4l-5.2 4.9-.2 2.1z" fill="#1088C6"></path>
   </svg>
 )}
 
 <style>
   svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex: none;
     display: block;
   }
