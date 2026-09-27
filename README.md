@@ -113,7 +113,6 @@ order: 10             # менше число — вище в списку
 | Текст на сайті | Файл |
 |---|---|
 | Питання і відповіді | `src/content/faq/` — один файл на питання |
-| Список районів у «Куди виїжджаємо» | `src/content/coverage.yml`, поле `areas` |
 | Абзац «Умови роботи на місці» | `src/content/coverage.yml`, поле `conditions` |
 | Телефон, Viber, Telegram, адреса, години роботи | `src/content/contacts.yml` |
 | Заголовки й описи для пошуку, H1 і підзаголовок першого екрана | `src/content/pages/home.yml` |

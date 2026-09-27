@@ -1,7 +1,6 @@
 ---
 interface Props {
   coverage: {
-    areas: string[];
     radius_km?: number;
     conditions?: string;
   };
@@ -41,9 +40,6 @@ const steps = [
     <div class="process__card">
       <h3>Або виїдемо до вас</h3>
       <p>Вартість виїзду залежить від району — скажемо одразу по телефону.</p>
-      {coverage.areas.length > 0 && (
-        <p class="process__areas">{coverage.areas.join(' · ')}</p>
-      )}
       {coverage.conditions && <p class="process__cond">{coverage.conditions}</p>}
     </div>
   </div>
@@ -102,7 +98,6 @@ const steps = [
     background: var(--surface-alt);
   }
   .process__card p { margin: 0; font-size: 0.95rem; line-height: 1.55; }
-  .process__areas { margin-top: 0.4rem !important; color: var(--muted); font-size: 0.9rem !important; }
   .process__cond { margin-top: 0.55rem !important; color: var(--muted); font-size: 0.86rem !important; }
 
   @media (min-width: 768px) {

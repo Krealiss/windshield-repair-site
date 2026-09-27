@@ -7,7 +7,7 @@ interface Props {
 }
 
 const { site } = Astro.props;
-const { contacts, coverage, reviews, faq } = site;
+const { contacts, reviews, faq } = site;
 
 const DAY_MAP: Record<string, string> = {
   'Понеділок': 'Monday',
@@ -51,11 +51,6 @@ if (contacts.hours.length) {
       opens: padTime(h.from!),
       closes: padTime(h.to!),
     }));
-}
-
-// Зона виїзду — саме тут, а не в адресі
-if (coverage.areas.length) {
-  business.areaServed = coverage.areas.map((a) => ({ '@type': 'Place', name: a }));
 }
 
 // Агрегований рейтинг тільки якщо відгуків достатньо.

@@ -30,7 +30,6 @@ const contactsSchema = z.object({
 });
 
 const coverageSchema = z.object({
-  areas: z.array(z.string()).default([]),
   radius_km: z.number().int().optional(),
   conditions: z.string().optional(),
 });
@@ -94,7 +93,6 @@ export async function loadSite() {
       gallery: pairs.length >= MIN_GALLERY_PAIRS,
       reviews: reviews.length >= MIN_REVIEWS,
       hours: contacts.hours.length > 0,
-      coverage: coverage.areas.length > 0,
     },
   };
 }
