@@ -6,8 +6,10 @@ interface Props {
   description: string;
   noindex?: boolean;
   phone?: string;
+  /* Прозора шапка поверх фотографії — тільки на головній */
+  overHero?: boolean;
 }
-const { title, description, noindex = false, phone } = Astro.props;
+const { title, description, noindex = false, phone, overHero = false } = Astro.props;
 
 // Канонічна адреса і og:url рахуються тут, а не в кожній сторінці.
 // Раніше canonical жив у SchemaOrg і сторінки /thanks/ та /404 лишалися без нього.
@@ -72,7 +74,7 @@ const year = new Date().getFullYear();
   <body>
     <a class="skip" href="#main">Перейти до вмісту</a>
 
-    <Header phone={phone} />
+    <Header phone={phone} overHero={overHero} />
 
     <main id="main">
       <slot />

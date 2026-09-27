@@ -210,7 +210,11 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
   .hero__trust svg { width: 17px; height: 17px; flex: none; color: var(--on-overlay); }
 
   @media (min-width: 768px) {
-    .hero__inner { gap: 1.15rem; max-width: none; }
+    .hero__inner {
+      gap: 1.15rem;
+      max-width: none;
+      padding-inline: max(1.5rem, calc((100% - var(--container)) / 2));
+    }
     .hero__title { max-width: 24ch; }
   }
 

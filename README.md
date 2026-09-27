@@ -122,7 +122,7 @@ order: 10             # менше число — вище в списку
 
 | Блок на сайті | Файл |
 |---|---|
-| Шапка (логотип і кнопка дзвінка, без навігації — сторінка одна) | `src/components/Header.astro` |
+| Шапка (логотип, навігація, кнопка дзвінка) | `src/components/Header.astro` |
 | Перший екран | `src/components/Hero.astro` |
 | «Ремонт замість заміни» | `src/components/RepairVsReplace.astro` |
 | «Як це відбувається» | `src/components/Process.astro` |

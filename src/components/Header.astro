@@ -2,23 +2,36 @@
 import { formatPhone, telHref } from '../lib/format';
 
 /**
- * Шапка сайту.
+ * Шапка сайту. Липка на всіх ширинах.
  *
- * Сторінка одна, тож навігації в шапці немає — лише логотип ліворуч
- * і кнопка дзвінка праворуч. Політика конфіденційності є у футері,
- * посилатись на неї ще й тут зайве.
+ * Два стани, і потрібні вони через фотографію першого екрана.
+ * Прозора липка шапка, виїжджаючи з темного знімка на білий контент,
+ * робить світлий текст невидимим. Тому стан перемикається, коли
+ * перший екран іде вгору: прозора → суцільна.
  *
- * Телефон у шапці з'являється від 768px — рівно там, де ховається
+ *   overHero=true  → тільки головна: прозора поверх фото, підтягнута
+ *                    на свою висоту, щоб знімок починався від верху
+ *                    вікна. data-solid перемикає скрипт унизу файлу.
+ *   overHero=false → /thanks/, /404, політика: суцільна завжди, там
+ *                    фотографії немає.
+ *
+ * Спостерігач той самий прийом, що й у нижньої панелі
+ * (StickyCall.astro): вона стежить за кнопкою телефона, ця шапка —
+ * за самою секцією #hero. Обидві реакції на вихід першого екрана
+ * перевіряти разом: полагодивши одну, легко зламати другу.
+ *
+ * Телефон у шапці зʼявляється від 768px — рівно там, де ховається
  * нижня липка панель. Так кнопка дзвінка є завжди, але жодного разу
- * не дублюється: на телефоні внизу, на десктопі вгорі.
+ * не дублюється.
  */
 interface Props {
   phone?: string;
+  overHero?: boolean;
 }
-const { phone } = Astro.props;
+const { phone, overHero = false } = Astro.props;
 ---
 
-<header class="hdr">
+<header class:list={['hdr', overHero && 'hdr--over']} data-solid={overHero ? 'false' : 'true'}>
   <div class="hdr__inner">
     <a class="hdr__brand" href="/" aria-label="На головну">
       <svg class="hdr__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
@@ -50,23 +63,56 @@ const { phone } = Astro.props;
 
 <style>
   .hdr {
+    position: sticky;
+    top: 0;
+    /*
+      Вище за нижню панель (z-index 50). Меню (Задача 4) — накладка
+      всередині шапки, і накрити нижню панель вона може тільки якщо
+      шапка стоїть вище за неї. Верх і низ екрана не перетинаються,
+      тож порядок між ними ні на що більше не впливає.
+    */
+    z-index: 60;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding-inline: max(1rem, calc((100% - var(--container)) / 2));
+    transition: background-color 0.2s ease-out, border-color 0.2s ease-out,
+                color 0.2s ease-out;
   }
 
   .hdr__inner {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    min-height: 60px;
+    min-height: var(--hdr-h);
   }
+
+  /*
+    Прозорий стан на головній.
+
+    Підтягування на власну висоту — щоб фотографія починалася від
+    верху вікна, а не під шапкою. Відступ не зникає, а перетікає в
+    .hero__inner (padding-block-start), тож перемикання станів нічого
+    не зсуває: змінюються лише кольори, розкладка стоїть на місці.
+  */
+  .hdr--over {
+    margin-bottom: calc(-1 * var(--hdr-h));
+    background: transparent;
+    border-bottom-color: transparent;
+  }
+  /* Колір успадковують і назва, і посилання, і кнопка бургера */
+  .hdr--over .hdr__inner { color: var(--on-overlay); }
+
+  .hdr--over[data-solid='true'] {
+    background: var(--surface);
+    border-bottom-color: var(--border);
+  }
+  .hdr--over[data-solid='true'] .hdr__inner { color: var(--text); }
 
   .hdr__brand {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
-    color: var(--text);
+    color: inherit;
     text-decoration: none;
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -77,8 +123,8 @@ const { phone } = Astro.props;
 
   .hdr__name { font-size: 1rem; white-space: nowrap; }
 
-  /* На вузьких екранах лишається сама позначка: назва з'їдала б
-     місце, потрібне посиланням */
+  /* На вузьких екранах лишається сама позначка: назва зʼїдала б
+     місце, потрібне кнопці дзвінка й бургеру */
   @media (max-width: 400px) {
     .hdr__name { display: none; }
   }
@@ -88,13 +134,8 @@ const { phone } = Astro.props;
   .hdr__call svg { width: 18px; height: 18px; flex: none; }
 
   @media (min-width: 768px) {
-    .hdr {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      padding-inline: max(1.5rem, calc((100% - var(--container)) / 2));
-    }
-    .hdr__inner { min-height: 68px; gap: 1rem; }
+    .hdr { padding-inline: max(1.5rem, calc((100% - var(--container)) / 2)); }
+    .hdr__inner { gap: 1rem; }
     .hdr__name { font-size: 1.05rem; }
     .hdr__call {
       display: inline-flex;
@@ -104,3 +145,29 @@ const { phone } = Astro.props;
     }
   }
 </style>
+
+<script>
+  const hdr = document.querySelector('.hdr');
+  const hero = document.getElementById('hero');
+
+  // Прозорий стан є тільки там, де під шапкою фотографія
+  if (hdr instanceof HTMLElement && hdr.classList.contains('hdr--over')) {
+    if (hero && 'IntersectionObserver' in window) {
+      // Верхню межу видимої області підрізаємо на висоту шапки:
+      // тоді перший екран «закінчується» саме під нею, а не під
+      // верхом вікна.
+      const shrink = Math.round(hdr.getBoundingClientRect().height);
+
+      new IntersectionObserver(
+        ([entry]) => {
+          hdr.dataset.solid = entry.isIntersecting ? 'false' : 'true';
+        },
+        { rootMargin: `-${shrink}px 0px 0px 0px` }
+      ).observe(hero);
+    } else {
+      // Старий браузер: лишаємо суцільну. Прозорість — оздоблення,
+      // а світлий текст на білому не читається взагалі.
+      hdr.dataset.solid = 'true';
+    }
+  }
+</script>

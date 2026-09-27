@@ -17,7 +17,7 @@ const site = await loadSite();
 const { contacts, meta, phone, show } = site;
 ---
 
-<Base title={meta.seo_title} description={meta.seo_description} phone={phone}>
+<Base title={meta.seo_title} description={meta.seo_description} phone={phone} overHero>
   <SchemaOrg slot="head" site={site} />
   <Analytics slot="head" gtmId={import.meta.env.PUBLIC_GTM_ID} />
 
