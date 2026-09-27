@@ -4,7 +4,6 @@ import SchemaOrg from '../components/SchemaOrg.astro';
 import Analytics from '../components/Analytics.astro';
 import StickyCall from '../components/StickyCall.astro';
 import Hero from '../components/Hero.astro';
-import Prices from '../components/Prices.astro';
 import RepairVsReplace from '../components/RepairVsReplace.astro';
 import Process from '../components/Process.astro';
 import Gallery from '../components/Gallery.astro';
@@ -27,16 +26,16 @@ const { contacts, meta, phone, show } = site;
     у голові людини зі сколом:
 
     1. Ви це робите і де ви?        → Hero
-    2. Скільки коштує?              → Prices
-    3. А в мене взагалі ремонтується?→ RepairVsReplace
-    4. Як це буде відбуватися?      → Process
-    5. Покажіть результат           → Gallery
-    6. Вам можна вірити?            → Reviews
-    7. Дрібні сумніви               → Faq
-    8. Добре, як звʼязатися         → LeadForm + Contacts
+    2. А в мене взагалі ремонтується?→ RepairVsReplace
+    3. Як це буде відбуватися?      → Process
+    4. Покажіть результат           → Gallery
+    5. Вам можна вірити?            → Reviews
+    6. Дрібні сумніви               → Faq
+    7. Добре, як звʼязатися         → LeadForm + Contacts
 
-    Ціни стоять другими навмисно. Прихована ціна — головна причина,
-    чому людина закриває вкладку і дзвонить конкуренту.
+    Питання «скільки коштує» свідомо не має блоку-відповіді: ціну називає
+    оператор телефоном. Тому другим іде саме «чи ремонтується мій випадок» —
+    наступне за силою питання, на яке сторінка може відповісти сама.
   -->
 
   <Hero
@@ -49,8 +48,6 @@ const { contacts, meta, phone, show } = site;
       ...(meta.guarantee ? [{ icon: 'shield' as const, text: meta.guarantee }] : []),
     ]}
   />
-
-  <Prices services={site.services} phone={phone} />
 
   <RepairVsReplace />
 

@@ -2,14 +2,13 @@ import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
 /**
- * Типізація контенту сайту: сторінки, послуги, галерея тощо.
+ * Типізація контенту сайту: галерея, відгуки, питання і відповіді.
  *
  * Розподіл відповідальності:
  *   ці схеми             → типи, обовʼязковість полів і межі значень
- *                          (`price_from` — ціле додатне, `size_mm` — 1..50,
- *                          `text` — до 400 символів). Плюс типобезпека
- *                          в шаблонах і автодоповнення. Падають під
- *                          час збірки.
+ *                          (`size_mm` — 1..50, `text` — до 400 символів).
+ *                          Плюс типобезпека в шаблонах і автодоповнення.
+ *                          Падають під час збірки.
  *   validate-content.mjs → те, чого схеми не вміють: заглушки з шаблону,
  *                          фотографії галереї (чи є файл на диску, чи
  *                          правильний шлях, чи достатній розмір) і пороги
@@ -18,17 +17,6 @@ import { glob } from 'astro/loaders';
  * Дублювання між ними прибрано: правило, яке можна виразити типом,
  * живе тут і тільки тут.
  */
-
-const services = defineCollection({
-  loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/services' }),
-  schema: z.object({
-    title: z.string().min(1),
-    price_from: z.number().int().positive(),
-    duration_min: z.number().int().positive().optional(),
-    note: z.string().max(90).optional(),
-    order: z.number().int().default(10),
-  }),
-});
 
 const gallery = defineCollection({
   loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/gallery' }),
@@ -64,4 +52,4 @@ const faq = defineCollection({
   }),
 });
 
-export const collections = { services, gallery, reviews, faq };
+export const collections = { gallery, reviews, faq };

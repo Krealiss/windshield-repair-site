@@ -8,7 +8,7 @@ interface Props {
 }
 
 const { site, isMobilePage = false } = Astro.props;
-const { contacts, coverage, services, reviews, faq } = site;
+const { contacts, coverage, reviews, faq } = site;
 
 const DAY_MAP: Record<string, string> = {
   'Понеділок': 'Monday',
@@ -37,11 +37,8 @@ const business: Record<string, unknown> = {
     longitude: contacts.lng,
   },
   url: Astro.site?.toString(),
-  priceRange: services.length
-    ? `₴${Math.min(...services.map((s) => s.price_from))}–${Math.max(
-        ...services.map((s) => s.price_from)
-      )}`
-    : undefined,
+  // priceRange свідомо немає: ціни на сайті не публікуються, їх називає
+  // оператор телефоном. Вигаданий діапазон у розмітці — гірше за його брак.
 };
 
 if (contacts.hours.length) {
@@ -74,26 +71,6 @@ if (reviews.length >= 3) {
   };
 }
 
-// ── послуги ───────────────────────────────────────────────
-const serviceNodes = services.map((s) => ({
-  '@type': 'Service',
-  name: s.title,
-  provider: { '@id': `${Astro.site}#business` },
-  ...(coverage.areas.length && {
-    areaServed: coverage.areas.map((a) => ({ '@type': 'Place', name: a })),
-  }),
-  offers: {
-    '@type': 'Offer',
-    price: s.price_from,
-    priceCurrency: 'UAH',
-    priceSpecification: {
-      '@type': 'PriceSpecification',
-      minPrice: s.price_from,
-      priceCurrency: 'UAH',
-    },
-  },
-}));
-
 // ── FAQ: тільки на головній, щоб не дублювати між сторінками ──
 const faqItems = faq.filter((f) => f.in_schema);
 const faqNode =
@@ -108,7 +85,10 @@ const faqNode =
       }
     : null;
 
-const graph = [business, ...serviceNodes, ...(faqNode ? [faqNode] : [])];
+// У @graph лишається сутність бізнесу, а на головній — ще й FAQ.
+// Вузлів Service тут більше немає: без ціни Offer порожній, а Service
+// без нього лише дублює назву послуги, яку Google і так бачить у тексті.
+const graph = [business, ...(faqNode ? [faqNode] : [])];
 const jsonLd = { '@context': 'https://schema.org', '@graph': graph };
 ---
 

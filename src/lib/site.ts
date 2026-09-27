@@ -32,7 +32,6 @@ const contactsSchema = z.object({
 const coverageSchema = z.object({
   areas: z.array(z.string()).default([]),
   travel_fee: z.number().int().min(0),
-  free_from: z.number().int().optional(),
   radius_km: z.number().int().optional(),
   conditions: z.string().optional(),
 });
@@ -68,10 +67,6 @@ export async function loadSite(page: PageKey) {
   const coverage = loadYaml('./src/content/coverage.yml', coverageSchema);
   const meta = loadYaml(`./src/content/pages/${page}.yml`, pageSchema);
 
-  const services = (await getCollection('services')).sort(
-    (a, b) => a.data.order - b.data.order
-  );
-
   // Опублікована пара без обох фото не показується ніколи —
   // навіть якщо валідатор чомусь пропустили
   const pairs = (await getCollection('gallery')).filter(
@@ -88,7 +83,6 @@ export async function loadSite(page: PageKey) {
     contacts,
     coverage,
     meta,
-    services: services.map((s) => s.data),
     gallery: pairs.map((g) => g.data),
     reviews: reviews.map((r) => r.data),
     faq: faq.map((f) => f.data),

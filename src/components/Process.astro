@@ -3,7 +3,6 @@ interface Props {
   coverage: {
     areas: string[];
     travel_fee: number;
-    free_from?: number;
     radius_km?: number;
     conditions?: string;
   };
@@ -11,12 +10,14 @@ interface Props {
 }
 const { coverage, address } = Astro.props;
 
+// Тільки сама вартість дороги. Приписки «безкоштовно від N грн» тут колись
+// був сенс: поруч стояв прайс, і людина бачила, чи дотягує її випадок до
+// порога. Цін на сайті більше немає — поріг перетворився на суму без
+// одиниці виміру, а про безкоштовний виїзд зручніше сказати телефоном.
 const feeText =
   coverage.travel_fee === 0
     ? 'Виїзд безкоштовний'
-    : coverage.free_from
-      ? `Виїзд ${coverage.travel_fee} грн, безкоштовно від ${coverage.free_from} грн`
-      : `Виїзд ${coverage.travel_fee} грн`;
+    : `Виїзд ${coverage.travel_fee} грн`;
 
 const steps = [
   { n: 1, t: 'Дзвінок або фото', d: 'Оцінюю пошкодження і називаю ціну ще до зустрічі.' },

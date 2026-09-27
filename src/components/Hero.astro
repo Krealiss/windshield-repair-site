@@ -109,7 +109,7 @@ const { h1, subtitle, phone, chips = [], placement = 'hero' } = Astro.props;
     display: grid;
     gap: 1.15rem;
     /* Знизу відступ менший: градієнт і так згасає в білий,
-       а порожнеча між першим екраном і цінами з'їдає прокрутку */
+       а порожнеча між першим екраном і наступним блоком з'їдає прокрутку */
     padding-bottom: calc(var(--section-y) * 0.6);
     background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
   }

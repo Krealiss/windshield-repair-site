@@ -14,9 +14,6 @@ export const viberHref = (raw: string) => `viber://chat?number=${raw.replace('+'
 
 export const telegramHref = (nick: string) => `https://t.me/${nick.replace('@', '')}`;
 
-/** 500 → «від 500 грн» */
-export const formatPrice = (n: number) => `від ${n.toLocaleString('uk-UA')} грн`;
-
 const DAMAGE_LABELS: Record<string, string> = {
   star: 'Зіркоподібний скол',
   bullseye: 'Бичаче око',

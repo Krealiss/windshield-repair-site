@@ -4,7 +4,6 @@ import SchemaOrg from '../components/SchemaOrg.astro';
 import Analytics from '../components/Analytics.astro';
 import StickyCall from '../components/StickyCall.astro';
 import Hero from '../components/Hero.astro';
-import Prices from '../components/Prices.astro';
 import LeadForm from '../components/LeadForm.astro';
 import Contacts from '../components/Contacts.astro';
 import { loadSite } from '../lib/site';
@@ -75,15 +74,13 @@ const heroChips: HeroChip[] = [
     </section>
   )}
 
-  <Prices services={site.services} phone={phone} />
-
   <!--
     Зворотне посилання на головну — поза умовними блоками навмисно.
     Якщо власник колись очистить «умови роботи», сторінка не має
     лишитися без єдиного змістового шляху назад.
   -->
   <p class="band back">
-    <a href="/">Ремонт сколів у майстерні: ціни, приклади робіт, гарантія →</a>
+    <a href="/">Ремонт сколів у майстерні: як працюємо, приклади робіт, гарантія →</a>
   </p>
 
   <div id="scroll-depth-75" aria-hidden="true"></div>
