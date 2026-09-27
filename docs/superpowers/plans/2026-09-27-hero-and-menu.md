@@ -388,10 +388,17 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
   .hero {
     position: relative;
     min-height: 100svh;
+    /*
+      Місце під шапку, яка лежить поверх фотографії. Відступ саме тут,
+      а не всередині .hero__inner: тоді вміст центрується в тому, що
+      лишилось під шапкою, і не з'їжджає донизу від несиметричних полів.
+      Висоту секції це не збільшує — box-sizing: border-box глобальний.
+      Шари фото й затемнення відступ не зачіпає: вони позиціюються від
+      padding-box, тобто все одно накривають секцію цілком.
+    */
+    padding-top: var(--hdr-h);
     display: grid;
-    /* Вміст притиснутий донизу: подалі від шапки, ближче до краю,
-       від якого починається наступна секція */
-    align-content: end;
+    align-content: center;
     overflow: hidden;
   }
 
@@ -424,8 +431,9 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
     display: grid;
     gap: 1rem;
     justify-items: start;
-    /* Зверху — місце під шапку, яка лежить поверх фото (Задача 3) */
-    padding-block: calc(var(--hdr-h) + 1.25rem) clamp(1.75rem, 7vh, 3.5rem);
+    /* Симетрично: місце під шапку дає сама секція, тут поля лише
+       щоб вміст не впирався в краї, коли не вміщається в екран */
+    padding-block: clamp(1.5rem, 5vh, 2.5rem);
     /* Той самий контейнер, що й у .band — щоб текст стояв по одній
        вертикалі з рештою сторінки */
     padding-inline: max(1rem, calc((100% - var(--container)) / 2));
@@ -483,7 +491,7 @@ const { h1, subtitle, phone, chips = [] } = Astro.props;
   }
 
   @media (min-width: 900px) {
-    .hero__inner { padding-block: calc(var(--hdr-h) + 2rem) clamp(2.5rem, 9vh, 5rem); }
+    .hero__inner { padding-block: clamp(2rem, 7vh, 3.5rem); }
   }
 </style>
 ```
@@ -790,17 +798,19 @@ Expected: клас із `hdr--over` знайдено, `data-solid="false"` зн�
 
 Run:
 ```bash
-for f in dist/thanks/index.html dist/404.html dist/polityka-konfidentsiynosti/index.html; do
-  echo "$f: $(grep -o 'hdr--over' "$f" | wc -l)"
-done
+node -e "
+const fs = require('fs');
+for (const f of ['dist/404.html', 'dist/thanks/index.html', 'dist/polityka-konfidentsiynosti/index.html']) {
+  const h = fs.readFileSync(f, 'utf8');
+  const cls = (h.match(/<header[^>]*class=\"([^\"]*)\"/) || [])[1];
+  const solid = (h.match(/<header[^>]*data-solid=\"([^\"]*)\"/) || [])[1];
+  console.log(f, JSON.stringify(cls), JSON.stringify(solid));
+}
+"
 ```
-Expected: `0` для кожного файлу. Там суцільна шапка. Цикл, а не `grep -c` по трьох файлах: `grep` без збігів виходить із кодом 1, і правильний результат виглядав би як помилка команди.
+Expected: для кожного файлу `"hdr"` і `"true"` — клас без `hdr--over`, стан суцільний.
 
-Run:
-```bash
-grep -o 'data-solid="true"' dist/404.html | head -1
-```
-Expected: знайдено.
+Перевіряти саме тег `<header>`, а не шукати `hdr--over` по всьому файлу: скрипт шапки інлайниться в кожну сторінку, і рядок `classList.contains('hdr--over')` у його тексті дає збіг там, де прозорої шапки насправді немає.
 
 - [ ] **Step 8: Перевірити, що документація не розійшлася з кодом**
 
