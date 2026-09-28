@@ -15,12 +15,17 @@
  * Секрети (Pages → Settings → Environment variables, тип Secret):
  *   TELEGRAM_WEBHOOK_SECRET
  *   TELEGRAM_BOT_TOKEN
+ *   TELEGRAM_CHAT_ID — лише як запасний адресат картки-замінника
  */
 import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET: string;
+  /* Потрібен лише як запасний адресат: якщо в заявці не збереглося
+     chat_id, картку-замінник треба комусь надіслати. Знак питання
+     навмисно — забута змінна не має валити обробник. */
+  TELEGRAM_CHAT_ID?: string;
   DB?: D1Database;
 }
 
@@ -103,11 +108,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const row = await env.DB.prepare(
       `SELECT id, created_at, name, phone, age, car, photos, status, prev_status,
-              actor_name, chat_id, message_id
+              actor_name, chat_id, message_id, notes
          FROM leads WHERE id = ?`
     )
       .bind(id)
-      .first<LeadRow & { chat_id: string | null; message_id: number | null }>();
+      .first<
+        LeadRow & { chat_id: string | null; message_id: number | null; notes: string | null }
+      >();
 
     if (!row) {
       await close('Заявку не знайдено');
@@ -191,15 +198,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const lead: LeadRow = { ...row, status: target, actor_name: who };
 
-    // Рядок про попереднє звернення рахуємо заново, щоб він не зник
-    // із картки після зміни стану
+    /* Попередження в картці. Перше рахуємо заново — воно залежить від
+       інших рядків таблиці; решту читаємо з колонки notes, куди їх
+       поклав /api/lead. Без неї перший же натиск стирав із картки
+       підказку «фото не передалося».
+
+       `created_at < ?`, а не `id <> ?`: «попереднє» звернення — те, що
+       раніше за цю заявку. Умова «будь-яке інше» показувала на картці
+       #5 дату заявки #9, тобто дату, якої на момент #5 ще не було. */
     const notes: string[] = [];
     const before = await env.DB.prepare(
-      'SELECT created_at FROM leads WHERE phone = ? AND id <> ? ORDER BY created_at DESC LIMIT 1'
+      'SELECT created_at FROM leads WHERE phone = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1'
     )
-      .bind(row.phone, id)
+      .bind(row.phone, row.created_at)
       .first<{ created_at: string }>();
     if (before) notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
+    for (const note of (row.notes ?? '').split('\n')) {
+      if (note.trim()) notes.push(note);
+    }
+
+    const text = cardText(lead, notes);
+    const markup = keyboard(lead);
+
+    /* Один шлях на дві біди: редагування не вдалося або редагувати
+       нічого (зворотний запис message_id колись не пройшов). В обох
+       випадках надсилаємо картку заново і запамʼятовуємо саме її — без
+       цього наступний натиск редагував би те саме старе повідомлення й
+       плодив ще одну картку, а стан у базі мінявся б без жодного сліду
+       в чаті. */
+    let drawn = false;
 
     if (row.chat_id && row.message_id) {
       const edited = await fetch(`${api}/editMessageText`, {
@@ -208,23 +235,48 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         body: JSON.stringify({
           chat_id: row.chat_id,
           message_id: row.message_id,
-          text: cardText(lead, notes),
-          reply_markup: keyboard(lead),
+          text,
+          reply_markup: markup,
         }),
       });
 
-      // Telegram обмежує редагування старих повідомлень. Замовчувати
-      // невдачу не можна: оператор натиснув і мусить побачити результат
-      if (!edited.ok) {
-        await fetch(`${api}/sendMessage`, {
+      drawn = edited.ok;
+
+      /* «message is not modified» — не збій: картка вже така, як треба.
+         Раніше ця відмова гнала код у sendMessage, і в чаті зʼявлявся
+         другий екземпляр тієї самої заявки. */
+      if (!drawn) {
+        const why = (await edited.json().catch(() => ({}))) as { description?: string };
+        if (/message is not modified/i.test(why.description ?? '')) drawn = true;
+      }
+    }
+
+    if (!drawn) {
+      const chatId = row.chat_id || env.TELEGRAM_CHAT_ID;
+      if (chatId) {
+        const sent = await fetch(`${api}/sendMessage`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: row.chat_id,
-            text: cardText(lead, notes),
-            reply_markup: keyboard(lead),
-          }),
+          body: JSON.stringify({ chat_id: chatId, text, reply_markup: markup }),
         });
+
+        if (sent.ok) {
+          try {
+            const data = (await sent.json()) as {
+              result?: { message_id?: number; chat?: { id?: number } };
+            };
+            const messageId = data.result?.message_id;
+            const newChatId = data.result?.chat?.id;
+            if (messageId && newChatId) {
+              await env.DB.prepare('UPDATE leads SET chat_id = ?, message_id = ? WHERE id = ?')
+                .bind(String(newChatId), messageId, id)
+                .run();
+            }
+          } catch {
+            // Картка в чаті вже є; не запамʼяталось — наступний натиск
+            // надішле ще одну. Краще за втрачений стан.
+          }
+        }
       }
     }
 
