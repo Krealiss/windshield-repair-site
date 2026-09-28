@@ -104,34 +104,63 @@ CREATE INDEX IF NOT EXISTS idx_leads_status ON leads (status);
 CREATE INDEX IF NOT EXISTS idx_leads_created ON leads (created_at);
 ```
 
-- [ ] **Step 2: Застосувати міграцію до локальної бази**
+- [ ] **Step 2: Створити локальний конфіг wrangler**
+
+`wrangler d1 execute` не має інлайн-прапорця для привʼязки — на відміну від `pages dev`, він **завжди** читає конфіг, і без нього падає з «Couldn't find a D1 DB with the name or binding». Перевірено обома способами: і за іменем бази, і за іменем привʼязки.
+
+Але конфіг у репозиторії проєкту не потрібен і шкідливий: Cloudflare Pages налаштовується в панелі, а файл у корені міняє поведінку розгортання для всіх. Тому конфіг локальний і в git не потрапляє.
+
+Створити `wrangler.local.toml`:
+
+```toml
+# Тільки для локальних команд wrangler d1 — у git не потрапляє.
+#
+# Потрібен, бо `wrangler d1 execute` не вміє брати привʼязку з
+# прапорця, як це робить `pages dev --d1 DB`. У продакшні привʼязка
+# задається в панелі Cloudflare Pages, і цього файлу там немає.
+name = "avtoskloua"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leads"
+database_id = "local"
+```
+
+Дописати в `.gitignore`:
+
+```
+# Локальний конфіг wrangler: потрібен лише для команд d1 execute
+wrangler.local.toml
+```
+
+- [ ] **Step 3: Застосувати міграцію до локальної бази**
 
 Локальна база живе в тому самому каталозі, що й локальний KV, — `.wrangler/state`.
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --file=migrations/0001_leads.sql
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --file=migrations/0001_leads.sql
 ```
 Expected: команда завершується успішно й повідомляє про виконані запити.
 
-- [ ] **Step 3: Переконатися, що таблиця є і порожня**
+- [ ] **Step 4: Переконатися, що таблиця є і порожня**
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT COUNT(*) AS n FROM leads"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT COUNT(*) AS n FROM leads"
 ```
 Expected: `n` дорівнює `0`.
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='leads'"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='leads'"
 ```
 Expected: три індекси — `idx_leads_phone`, `idx_leads_status`, `idx_leads_created`.
 
-- [ ] **Step 4: Коміт**
+- [ ] **Step 5: Коміт**
 
 ```bash
-git add migrations/0001_leads.sql
+git add migrations/0001_leads.sql .gitignore
 git commit -m "Таблиця заявок у D1"
 ```
 
@@ -491,7 +520,7 @@ Expected: `200 {\"ok\":true}`.
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT id, status, name, phone, photos, chat_id, message_id FROM leads ORDER BY id DESC LIMIT 1"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT id, status, name, phone, photos, chat_id, message_id FROM leads ORDER BY id DESC LIMIT 1"
 ```
 Expected: один рядок, `status` = `new`, `chat_id` і `message_id` заповнені — без них кнопки не працюватимуть.
 
@@ -551,7 +580,7 @@ Expected: `200 {\"ok\":true}`.
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT id, name, photos FROM leads ORDER BY id DESC LIMIT 1"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT id, name, photos FROM leads ORDER BY id DESC LIMIT 1"
 ```
 Expected: `photos` дорівнює `2`.
 
@@ -901,7 +930,7 @@ Expected: `403` в обох випадках.
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT id, status FROM leads ORDER BY id DESC LIMIT 2"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT id, status FROM leads ORDER BY id DESC LIMIT 2"
 ```
 Expected: стани не змінились — чужий запит нічого не зробив.
 
@@ -922,7 +951,7 @@ Expected: скрипт показує, що було зареєстровано 
 
 Після кожного кроку:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT id, status, prev_status, actor_name FROM leads WHERE id = 1"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT id, status, prev_status, actor_name FROM leads WHERE id = 1"
 ```
 Expected: `status` у базі збігається з тим, що показує картка.
 
@@ -1050,8 +1079,8 @@ Expected: `200`, картка приходить, у ній рядок `⚠️ �
 
 Run:
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "DELETE FROM leads WHERE name LIKE 'ТЕСТ%'"
-npx wrangler d1 execute DB --local --persist-to .wrangler/state --command "SELECT COUNT(*) AS n FROM leads"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "DELETE FROM leads WHERE name LIKE 'ТЕСТ%'"
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "SELECT COUNT(*) AS n FROM leads"
 ```
 Expected: `n` дорівнює `0`.
 
