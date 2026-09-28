@@ -132,6 +132,7 @@ order: 10             # менше число — вище в списку
 | Відгуки | `src/components/Reviews.astro` |
 | Питання і відповіді — тільки заголовок блоку, самі питання в контенті | `src/components/Faq.astro` |
 | Форма заявки | `src/components/LeadForm.astro` |
+| Обіцянка передзвонити — спільна для форми й сторінки подяки, у робочі години коротша | `src/components/CallbackPromise.astro` |
 | Контакти | `src/components/Contacts.astro` |
 | Нижня панель дзвінка | `src/components/StickyCall.astro` |
 | Розмітка для пошуковиків | `src/components/SchemaOrg.astro` |

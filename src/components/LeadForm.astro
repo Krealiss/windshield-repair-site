@@ -25,18 +25,19 @@
  * завантаження, і людина йде, не дочекавшись. Після ресайзу —
  * 200–400 КБ.
  */
+import CallbackPromise from './CallbackPromise.astro';
+
 interface Props {
   placement?: string;
+  /* Графік потрібен обіцянці: вона міняється після робочих годин */
+  hours?: { day: string; from?: string; to?: string; closed: boolean }[];
 }
-const { placement = 'form' } = Astro.props;
+const { placement = 'form', hours = [] } = Astro.props;
 ---
 
 <section class="band band--tint lead" id="lead">
   <h2 class="lead__title">Не впевнені, чи ремонтується ваш скол?</h2>
-  <p class="lead__sub">
-    Передзвонимо протягом 15 хвилин, а якщо вже пізно — наступного дня
-    в робочі години.
-  </p>
+  <CallbackPromise hours={hours} class="lead__sub" />
 
   <!--
     Справжній <form>, а не набір полів у <div>.

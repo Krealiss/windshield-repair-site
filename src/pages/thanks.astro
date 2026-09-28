@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import CallbackPromise from '../components/CallbackPromise.astro';
 import { loadSite } from '../lib/site';
 import { formatPhone, telHref } from '../lib/format';
 
@@ -29,7 +30,7 @@ const phone = site.phone;
     </div>
 
     <h1>Заявку прийнято</h1>
-    <p>Передзвонимо протягом 15 хвилин, а якщо вже пізно — наступного дня в робочі години.</p>
+    <CallbackPromise hours={site.contacts.hours} />
     <p class="ty__hint">Якщо справа термінова — швидше зателефонувати:</p>
     <a class="btn btn--primary btn--lg" href={telHref(phone)} data-cta="thanks" data-phone>
       {formatPhone(phone)}

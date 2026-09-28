@@ -1,0 +1,89 @@
+---
+interface Props {
+  hours: { day: string; from?: string; to?: string; closed: boolean }[];
+  class?: string;
+}
+const { hours, class: className } = Astro.props;
+
+/**
+ * Обіцянка передзвонити — та сама на формі заявки й на сторінці подяки.
+ *
+ * Спільний компонент, а не два однакові абзаци: обіцянка не має
+ * розходитись між сторінками, а копія рано чи пізно розходиться.
+ *
+ * У розмітку йде повний текст із «якщо вже пізно» — він правдивий
+ * у будь-яку годину, тож без JS людина читає коректну обіцянку.
+ * Скрипт скорочує його до однієї з двох точних версій: у робочі
+ * години про пізній час не згадує взагалі, поза ними — не обіцяє
+ * п'ятнадцяти хвилин, яких не буде.
+ *
+ * Графік їде в data-атрибуті числами, а не рядками «09:00»: браузеру
+ * лишається тільки порівняти, а не розбирати формат.
+ */
+
+const toMinutes = (t?: string) => {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+
+// Порядок днів у контенті — з понеділка. Скрипт розраховує на нього,
+// тож неповний графік до браузера не їде взагалі: краще лишити
+// статичний текст, ніж показати обіцянку за чужим розкладом.
+const schedule = hours.map((d) => {
+  const from = toMinutes(d.from);
+  const to = toMinutes(d.to);
+  return d.closed || from === null || to === null ? null : [from, to];
+});
+
+const usable = hours.length === 7 && schedule.some((d) => d !== null);
+---
+
+<p class={className} data-hours={usable ? JSON.stringify(schedule) : undefined}>
+  Передзвонимо протягом 15 хвилин, а якщо вже пізно — наступного дня
+  в робочі години.
+</p>
+
+<script>
+  const DAYS: Record<string, number> = {
+    Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6,
+  };
+
+  for (const el of document.querySelectorAll<HTMLElement>('[data-hours]')) {
+    let schedule: ([number, number] | null)[];
+    try {
+      schedule = JSON.parse(el.dataset.hours ?? '');
+    } catch {
+      continue; // зіпсований графік — лишаємо статичний текст
+    }
+
+    /*
+      Час київський, а не браузерний. Людина може відкрити сайт із
+      іншого часового поясу — з відрядження, з-за кордону, просто зі
+      збитим годинником — а майстерня працює за київським.
+
+      hourCycle: 'h23' замість hour12: false навмисно: частина рушіїв
+      при hour12: false віддає опівночі «24», і година 24*60 хвилин
+      виходить за будь-який графік.
+    */
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Kyiv',
+      hourCycle: 'h23',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(new Date());
+
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+    const index = DAYS[part('weekday')];
+    if (index === undefined) continue;
+
+    const today = schedule[index];
+    const now = Number(part('hour')) * 60 + Number(part('minute'));
+    const open = today !== null && today !== undefined && now >= today[0] && now < today[1];
+
+    el.textContent = open
+      ? 'Передзвонимо протягом 15 хвилин.'
+      : 'Зараз неробочий час — передзвонимо, щойно почнемо працювати.';
+  }
+</script>
