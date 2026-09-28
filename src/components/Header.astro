@@ -39,21 +39,39 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
 
 <header class:list={['hdr', overHero && 'hdr--over']} data-solid={overHero ? 'false' : 'true'}>
   <div class="hdr__inner">
-    <a class="hdr__brand" href="/" aria-label="Автоскло — на головну">
+    <!--
+      aria-label мусить містити видимий текст посилання. Інакше
+      Lighthouse ловить label-content-name-mismatch, а голосове
+      керування не знаходить посилання за написом, який людина бачить.
+      Міняєте напис — міняйте й підпис.
+    -->
+    <a class="hdr__brand" href="/" aria-label="Avtoskloua — на головну">
       <svg class="hdr__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
         <rect width="64" height="64" rx="14" fill="var(--accent)"></rect>
-        <g stroke="var(--on-accent)" stroke-width="3.6" stroke-linecap="round">
+        <g stroke="var(--on-accent)" stroke-width="3.6" stroke-linecap="round" fill="none">
+          <!--
+            Промені сколу. Два з них — горизонтальна пара — довші за
+            решту й мають по одному зламу: так знак читається не просто
+            як зірочка, а як тріщина, що пішла від удару.
+
+            Пара саме горизонтальна, а не діагональна: плитка скруглена
+            (rx=14), і діагональ упиралася б у заокруглення кута.
+            По горизонталі край рівний від y=14 до y=50, тож кінці
+            (59,36) і (5,40) лишаються всередині з запасом на товщину
+            лінії й круглий наконечник.
+          -->
+          <path d="M32 32 L49 38 L61 34"></path>
+          <path d="M32 32 L15 35 L3 39"></path>
+
           <path d="M32 32 L32 13"></path>
           <path d="M32 32 L47 21"></path>
-          <path d="M32 32 L51 39"></path>
           <path d="M32 32 L39 51"></path>
           <path d="M32 32 L20 48"></path>
-          <path d="M32 32 L13 36"></path>
           <path d="M32 32 L17 19"></path>
         </g>
         <circle cx="32" cy="32" r="5.4" fill="var(--on-accent)"></circle>
       </svg>
-      <span class="hdr__name">Автоскло</span>
+      <span class="hdr__name">Avtoskloua</span>
     </a>
 
     {nav.length > 0 && (
@@ -156,14 +174,19 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
     margin-right: auto;
   }
 
-  .hdr__mark { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+  .hdr__mark { width: 34px; height: 34px; border-radius: 9px; flex: none; }
 
-  .hdr__name { font-size: 1rem; white-space: nowrap; }
-
-  /* На вузьких екранах лишається сама позначка: назва зʼїдала б
-     місце, потрібне кнопці дзвінка й бургеру */
-  @media (max-width: 400px) {
-    .hdr__name { display: none; }
+  /*
+    Назва — головний елемент шапки, і за задумом замовника займає
+    близько половини її ширини. Тому вона не ховається на вузьких
+    екранах: раніше від 400px лишалася сама позначка, але ховати те,
+    заради чого шапка існує, безглуздо. На 320px перевірено — назва,
+    позначка й кнопка меню вміщаються.
+  */
+  .hdr__name {
+    font-size: clamp(1.25rem, 6.8vw, 1.75rem);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
   }
 
   /* Телефон у шапці — рівно там, де зникає нижня панель */
@@ -204,7 +227,7 @@ const { phone, overHero = false, nav = [], viber, telegram, address } = Astro.pr
   @media (min-width: 768px) {
     .hdr { padding-inline: max(1.5rem, calc((100% - var(--container)) / 2)); }
     .hdr__inner { gap: 1rem; }
-    .hdr__name { font-size: 1.05rem; }
+    /* Кегль назви задає clamp вище — окреме число тут його б перебило */
     .hdr__call {
       display: inline-flex;
       min-height: 44px;

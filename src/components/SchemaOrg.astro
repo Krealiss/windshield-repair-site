@@ -23,7 +23,13 @@ const DAY_MAP: Record<string, string> = {
 const business: Record<string, unknown> = {
   '@type': 'AutoRepair',
   '@id': `${Astro.site}#business`,
-  name: 'Автоскло',
+  // Бренд латиницею — як у шапці й у домені. Кириличне написання
+  // лишається другим ім'ям: шукають саме «автоскло», і розмітка
+  // мусить знати обидва, інакше Google не звʼяже сайт із запитом.
+  // Назва тут і напис у шапці мусять збігатися — Google звіряє їх
+  // із Google Business Profile.
+  name: 'Avtoskloua',
+  alternateName: 'Автоскло',
   telephone: contacts.phone_main, // у schema завжди реальний, не трекінговий
   address: {
     '@type': 'PostalAddress',
