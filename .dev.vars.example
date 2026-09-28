@@ -16,3 +16,9 @@ TELEGRAM_BOT_TOKEN=
 # Куди бот надсилатиме заявки. Дізнатися: напишіть боту будь-що
 # в Telegram, потім запустіть `npm run telegram:chat-id`
 TELEGRAM_CHAT_ID=
+
+# Секрет вебхука. Telegram підставляє його в заголовок кожного запиту
+# на /api/tg — без нього ендпоінт відкидає запит. Вигадайте довгий
+# випадковий рядок, наприклад:
+#     node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
+TELEGRAM_WEBHOOK_SECRET=
