@@ -134,15 +134,22 @@ const fail = (status: number, html: boolean) =>
       });
 
 /**
- * Приводить текст із форми до вигляду, придатного для повідомлення:
- * переноси рядків і керівні символи стають пробілами, зайве
- * обрізається. Причина не косметична — підпис до фотографії в
- * Telegram обмежений 1024 символами, і заявка, яка через довге поле
- * не надіслалась, гірша за обрізане ім'я.
+ * Приводить текст із форми до вигляду, придатного для повідомлення.
+ *
+ * Будь-який пробільний символ — зокрема перенос рядка — стає звичайним
+ * пробілом. Це не косметика: повідомлення в Telegram складається з
+ * рядків «Поле: значення», і ім'я з переносом усередині дописало б у
+ * заявку зайвий рядок, який виглядає як справжнє поле. Наприклад,
+ * чужий номер телефона.
+ *
+ * Довжина обрізається, бо підпис до фотографії в Telegram обмежений
+ * 1024 символами, і заявка, яка через довге поле не надіслалась,
+ * гірша за обрізане ім'я.
  */
 const clean = (value: FormDataEntryValue | null, max: number) =>
   String(value ?? '')
-    .replace(/[ -]+/g, ' ')
+    .split(/\s+/)
+    .join(' ')
     .trim()
     .slice(0, max);
 
@@ -181,6 +188,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // марка й фото пропускаються навмисно — див. специфікацію.
   if (!/^\+380\d{9}$/.test(phone)) return fail(400, html);
   if (!name) return fail(400, html);
+  // Згода — вимога закону, і перевіряти її лише в браузері замало:
+  // прямий POST повз форму проходив би без неї, а заявка без згоди
+  // не має права опинитися в CRM
+  if (!form.get('consent')) return fail(400, html);
 
   const photo = form.get('photo');
   const hasPhoto = photo instanceof File && photo.size > 0;
@@ -286,7 +297,7 @@ npx wrangler pages dev dist --port 8788 --compatibility-date=2026-09-08 --kv RAT
 Run:
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8788/api/lead \
-  -F "phone=+380671234567" -F "elapsed=9999"
+  -F "phone=+380671234567" -F "consent=on" -F "elapsed=9999"
 ```
 Expected: `400`. Ім'я обов'язкове.
 
@@ -295,7 +306,7 @@ Expected: `400`. Ім'я обов'язкове.
 Run:
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8788/api/lead \
-  -F "name=ТЕСТ" -F "phone=0671234567" -F "elapsed=9999"
+  -F "name=ТЕСТ" -F "phone=0671234567" -F "consent=on" -F "elapsed=9999"
 ```
 Expected: `400`. Формат строгий: `+380` і дев'ять цифр.
 
@@ -307,7 +318,7 @@ Run:
 ```bash
 curl -s -X POST http://127.0.0.1:8788/api/lead \
   -F "name=ТЕСТ Задача 1" -F "phone=+380671234567" \
-  -F "age=Тиждень" -F "car=Skoda Octavia 2016" -F "elapsed=9999" -F "page=/"
+  -F "age=Тиждень" -F "car=Skoda Octavia 2016" -F "consent=on" -F "elapsed=9999" -F "page=/"
 ```
 Expected: `{"ok":true}`. У Telegram приходить повідомлення, де є рядки `Ім'я`, `Телефон`, `Давність`, `Авто`, `Сторінка`, `Час` і `Без фото`.
 
@@ -316,7 +327,7 @@ Expected: `{"ok":true}`. У Telegram приходить повідомлення
 Run:
 ```bash
 curl -s -X POST http://127.0.0.1:8788/api/lead \
-  -F "name=ТЕСТ без давності" -F "phone=+380671234567" -F "elapsed=9999"
+  -F "name=ТЕСТ без давності" -F "phone=+380671234567" -F "consent=on" -F "elapsed=9999"
 ```
 Expected: `{"ok":true}`. У повідомленні **немає** рядків `Давність` і `Авто` — жодних прочерків, жодного «не вказано».
 
@@ -325,7 +336,7 @@ Expected: `{"ok":true}`. У повідомленні **немає** рядків
 Run:
 ```bash
 curl -s -X POST http://127.0.0.1:8788/api/lead \
-  -F "name=ТЕСТ чужа давність" -F "phone=+380671234567" -F "age=позавчора" -F "elapsed=9999"
+  -F "name=ТЕСТ чужа давність" -F "phone=+380671234567" -F "age=позавчора" -F "consent=on" -F "elapsed=9999"
 ```
 Expected: `{"ok":true}`, і в повідомленні рядка `Давність` **немає**: значення не з переліку відкидається.
 
@@ -335,18 +346,41 @@ Run:
 ```bash
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" -X POST http://127.0.0.1:8788/api/lead \
   -H "Accept: text/html,application/xhtml+xml" \
-  -F "name=ТЕСТ без JS" -F "phone=+380671234567" -F "elapsed=9999"
+  -F "name=ТЕСТ без JS" -F "phone=+380671234567" -F "consent=on" -F "elapsed=9999"
 ```
 Expected: `303` і адреса, що закінчується на `/thanks/`.
 
 Run:
 ```bash
 curl -s -X POST http://127.0.0.1:8788/api/lead \
-  -H "Accept: text/html" -F "phone=+380671234567" -F "elapsed=9999" | head -3
+  -H "Accept: text/html" -F "phone=+380671234567" -F "consent=on" -F "elapsed=9999" | head -3
 ```
 Expected: HTML-сторінка зі словами «Заявку не надіслано», а не JSON. (Ім'я не передано — заявка невалідна.)
 
-- [ ] **Step 9: Коміт**
+- [ ] **Step 9: Заявка без згоди відхиляється**
+
+Перевіряти згоду лише в браузері замало: прямий POST повз форму проходив би без неї, а заявка без згоди не має права опинитися в CRM.
+
+Run:
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8788/api/lead \
+  -F "name=ТЕСТ без згоди" -F "phone=+380671234567" -F "elapsed=9999"
+```
+Expected: `400`.
+
+- [ ] **Step 10: Перенос рядка в імені не дописує зайвого рядка в заявку**
+
+Run:
+```bash
+curl -s -X POST http://127.0.0.1:8788/api/lead \
+  --form-string $'name=ТЕСТ\nТелефон: +380000000000' \
+  -F "phone=+380671234567" -F "consent=on" -F "elapsed=9999"
+```
+Expected: `{"ok":true}`, а в Telegram — рівно один рядок `Телефон:` зі справжнім номером `+380671234567`. Підроблений номер має стояти всередині рядка `Ім'я`, а не окремим рядком.
+
+Це перевірка того, заради чого існує `clean()`: повідомлення складається з рядків «Поле: значення», і перенос усередині імені дописав би в заявку рядок, який виглядає як справжнє поле.
+
+- [ ] **Step 11: Коміт**
 
 ```bash
 git add functions/api/lead.ts
