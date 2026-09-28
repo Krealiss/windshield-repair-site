@@ -118,12 +118,18 @@ CREATE INDEX IF NOT EXISTS idx_leads_created ON leads (created_at);
 # Потрібен, бо `wrangler d1 execute` не вміє брати привʼязку з
 # прапорця, як це робить `pages dev --d1 DB`. У продакшні привʼязка
 # задається в панелі Cloudflare Pages, і цього файлу там немає.
+#
+# database_id навмисно "DB", а не довільний рядок: саме такий id
+# підставляє `pages dev --d1 DB`, коли прапорець не містить `=<ref>`.
+# Локальне сховище D1 — файл, підписаний хешем цього id, тож без збігу
+# `d1 execute` і `pages dev` дивилися б у дві різні порожні бази, і
+# заявка приходила б із «Заявку не збережено» при живій таблиці.
 name = "avtoskloua"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "leads"
-database_id = "local"
+database_id = "DB"
 ```
 
 Дописати в `.gitignore`:
