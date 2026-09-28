@@ -11,10 +11,15 @@
  *   RATE  →  KV namespace для обмеження частоти
  */
 
+import { cardText, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
+
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
   RATE?: KVNamespace;
+  /* Знак питання навмисно: привʼязку можна забути, і це не має
+     коштувати заявки — див. відправку нижче */
+  DB?: D1Database;
 }
 
 const RATE_LIMIT = 5;           // заявок на IP
@@ -182,81 +187,138 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await env.RATE.put(key, String(count + 1), { expirationTtl: RATE_WINDOW });
   }
 
-  // ── 5. Відправка в Telegram ─────────────────────────────
+  // ── 5. Запис у базу ─────────────────────────────────────
   //
-  // Порожні поля не згадуються взагалі: інакше половина заявок
-  // перетворюється на список прочерків, у якому не видно заповненого.
+  // Рядок створюється ДО відправки: його id — це номер заявки в
+  // картці, і взяти його більше нізвідки.
   //
-  // parse_mode не задається навмисно. Повідомлення містить текст, який
+  // Якщо бази немає або запит до неї впав — заявка все одно піде.
+  // Втратити заявку через відсутню привʼязку неприпустимо; оператор
+  // побачить попередження просто в картці.
+  const createdAt = new Date().toISOString();
+
+  let lead: LeadRow = {
+    id: 0,
+    created_at: createdAt,
+    name,
+    phone,
+    age: age || null,
+    car: car || null,
+    photos: photos.length,
+    status: 'new' as Status,
+    prev_status: null,
+    actor_name: null,
+  };
+
+  const notes: string[] = [];
+
+  if (env.DB) {
+    try {
+      // Попереднє звернення шукаємо до вставки, інакше знайдемо
+      // самих себе
+      const before = await env.DB.prepare(
+        'SELECT created_at FROM leads WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+      )
+        .bind(phone)
+        .first<{ created_at: string }>();
+
+      if (before) {
+        notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
+      }
+
+      // last_row_id, а не RETURNING: перше є в D1 завжди, друге
+      // залежить від версії рушія, і мовчазна відмова тут коштувала б
+      // номера заявки
+      const inserted = await env.DB.prepare(
+        `INSERT INTO leads (created_at, name, phone, age, car, photos, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'new')`
+      )
+        .bind(createdAt, name, phone, lead.age, lead.car, lead.photos)
+        .run();
+
+      const newId = Number(inserted.meta?.last_row_id ?? 0);
+      if (newId > 0) lead = { ...lead, id: newId };
+    } catch {
+      // Мовчки: причина цікава нам, а не людині, яка чекає на відповідь
+    }
+  }
+
+  if (lead.id === 0) notes.push('⚠️ Заявку не збережено');
+
+  // ── 6. Відправка в Telegram ─────────────────────────────
+  //
+  // Спершу знімки, далі картка окремим повідомленням. До альбому
+  // Telegram не дозволяє прикріпити кнопки, тож картка однакова для
+  // заявки з фото і без — один шлях у коді замість двох.
+  //
+  // parse_mode не задається навмисно. Картка містить текст, який
   // вписала людина, і з розміткою ім'я на кшталт «<b» ламало б усе
   // повідомлення або ховало частину заявки.
-  const time = new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' });
-
-  const lines = [`🔧 Нова заявка`, `Ім'я: ${name}`, `Телефон: ${phone}`];
-  if (age) lines.push(`Давність: ${age}`);
-  if (car) lines.push(`Авто: ${car}`);
-  lines.push(`Сторінка: ${page}`, `Час: ${time}`);
-  if (oversized > 0) {
-    lines.push('', `⚠️ Не вмістилося знімків: ${oversized} — передзвоніть і попросіть надіслати`);
-  }
-  if (!hasPhoto) lines.push('', 'Без фото');
-  const caption = lines.join('\n');
-
   const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
 
   try {
-    let res: Response;
-
     if (hasPhoto) {
       const tg = new FormData();
       tg.set('chat_id', env.TELEGRAM_CHAT_ID);
 
+      let photoRes: Response;
       if (photos.length === 1) {
-        tg.set('caption', caption);
         tg.set('photo', photos[0], 'skol.jpg');
-        res = await fetch(`${api}/sendPhoto`, { method: 'POST', body: tg });
+        photoRes = await fetch(`${api}/sendPhoto`, { method: 'POST', body: tg });
       } else {
-        /*
-          Кілька знімків ідуть одним альбомом, а не чергою окремих
-          повідомлень: інакше заявка розсипається в чаті на кілька
-          записів, і підпис губиться десь між ними.
-
-          Підпис у Telegram несе лише перший елемент альбому —
-          решта йдуть без тексту, так влаштований sendMediaGroup.
-          Файли додаються окремими полями, а media посилається на
-          них через attach://.
-        */
         const media = photos.map((_, i) => ({
           type: 'photo',
           media: `attach://skol-${i + 1}`,
-          ...(i === 0 ? { caption } : {}),
         }));
         tg.set('media', JSON.stringify(media));
         photos.forEach((p, i) => tg.set(`skol-${i + 1}`, p, `skol-${i + 1}.jpg`));
-        res = await fetch(`${api}/sendMediaGroup`, { method: 'POST', body: tg });
+        photoRes = await fetch(`${api}/sendMediaGroup`, { method: 'POST', body: tg });
       }
 
-      // Telegram інколи відхиляє зображення (формат, розмір).
-      // Втратити фото прикро, втратити заявку — неприпустимо.
-      if (!res.ok) {
-        res = await fetch(`${api}/sendMessage`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: env.TELEGRAM_CHAT_ID,
-            text: `${caption}\n\n⚠️ Фото не передалося — передзвоніть і попросіть надіслати`,
-          }),
-        });
+      // Telegram інколи відхиляє зображення (формат, розмір). Заявку
+      // це не спиняє — картка йде в будь-якому разі, але оператор має
+      // побачити, що з фото щось не так.
+      if (!photoRes.ok) {
+        notes.push('⚠️ Фото не передалося — передзвоніть і попросіть надіслати');
       }
-    } else {
-      res = await fetch(`${api}/sendMessage`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: caption }),
-      });
     }
 
+    if (oversized > 0) {
+      notes.push(`⚠️ Не вмістилося знімків: ${oversized} — передзвоніть і попросіть надіслати`);
+    }
+
+    const res = await fetch(`${api}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: env.TELEGRAM_CHAT_ID,
+        text: cardText(lead, notes),
+        // Кнопки має сенс малювати лише тоді, коли є що міняти:
+        // без рядка в базі натискання нікуди не запишеться
+        ...(lead.id > 0 ? { reply_markup: keyboard(lead) } : {}),
+      }),
+    });
+
     if (!res.ok) return fail(502, html);
+
+    // Запамʼятовуємо, яке саме повідомлення перемальовувати
+    if (env.DB && lead.id > 0) {
+      try {
+        const sent = (await res.json()) as {
+          result?: { message_id?: number; chat?: { id?: number } };
+        };
+        const messageId = sent.result?.message_id;
+        const chatId = sent.result?.chat?.id;
+        if (messageId && chatId) {
+          await env.DB.prepare('UPDATE leads SET chat_id = ?, message_id = ? WHERE id = ?')
+            .bind(String(chatId), messageId, lead.id)
+            .run();
+        }
+      } catch {
+        // Картка вже дійшла; кнопки просто не спрацюють — це
+        // видно одразу, і краще за втрачену заявку
+      }
+    }
   } catch {
     return fail(502, html);
   }
