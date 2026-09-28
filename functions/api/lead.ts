@@ -17,8 +17,8 @@ interface Env {
   RATE?: KVNamespace;
 }
 
-const RATE_LIMIT = 5;           // заявок
-const RATE_WINDOW = 3600;       // за годину, на IP
+const RATE_LIMIT = 5;           // заявок на IP
+const RATE_WINDOW = 3600;       // секунд ковзного вікна — див. коментар нижче, п. 4
 const MIN_ELAPSED_MS = 2500;    // швидше — майже напевно бот
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_FIELD_CHARS = 80;
@@ -74,13 +74,21 @@ const fail = (status: number, html: boolean) =>
  * заявку зайвий рядок, який виглядає як справжнє поле. Наприклад,
  * чужий номер телефона.
  *
+ * \s у JS НЕ покриває NEL (U+0085), хоча за UAX #14 це обов'язковий
+ * розрив рядка для рушіїв розкладки на базі Qt (Telegram Desktop) і
+ * для Android/iOS: `\s` в ECMAScript — це фіксований список кодових
+ * точок (WhiteSpace + LineTerminator), а не Unicode-властивість
+ * White_Space, у яку U+0085 входить. Тому клас нижче додає його явно —
+ * перевірено в Node на LF, CR, VT, FF, TAB, U+2028, U+2029, NBSP і
+ * U+0085 (звіт правки: final-fix-report.md, знахідка 2).
+ *
  * Довжина обрізається, бо підпис до фотографії в Telegram обмежений
  * 1024 символами, і заявка, яка через довге поле не надіслалась,
  * гірша за обрізане ім'я.
  */
 const clean = (value: FormDataEntryValue | null, max: number) =>
   String(value ?? '')
-    .split(/\s+/)
+    .split(/[\s\u0085]+/)
     .join(' ')
     .trim()
     .slice(0, max);
@@ -126,9 +134,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // не має права опинитися в CRM
   if (!form.get('consent')) return fail(400, html);
 
+  // Завелике фото відкидаємо, а не всю заявку: без JS стискання не
+  // відбувається взагалі (знімок із сучасного телефона — 4–8 МБ), і
+  // людина з вимкненими скриптами прикріпила б файл і втратила заявку
+  // разом із ним. Той самий принцип, що й нижче для фото, яке не
+  // прийняв сам Telegram, — заявка без фото важливіша за фото без заявки.
   const photo = form.get('photo');
-  const hasPhoto = photo instanceof File && photo.size > 0;
-  if (hasPhoto && photo.size > MAX_PHOTO_BYTES) return fail(413, html);
+  const oversized = photo instanceof File && photo.size > MAX_PHOTO_BYTES;
+  const hasPhoto = photo instanceof File && photo.size > 0 && !oversized;
 
   // ── 4. Обмеження частоти ────────────────────────────────
   //
@@ -138,6 +151,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // неочевидний і бив по живих людях: в українських мобільних мережах
   // сотні абонентів сидять за одним IP, і бот міг вичерпати їхню спільну
   // квоту, жодного разу не надіславши валідної заявки.
+  //
+  // Вікно не годинне від першої заявки, а ковзне: expirationTtl
+  // виставляється заново при кожній прийнятій заявці, тож ключ живе
+  // годину від ОСТАННЬОЇ прийнятої заявки, а не від першої. П'ять
+  // заявок з одного IP, розтягнуті хоч на півдня (з паузами менше
+  // години між сусідніми), усе одно замкнуть шосту — лічильник не
+  // встигає обнулитися, поки заявки продовжують приходити.
   //
   // get + put не атомарні: два одночасні запити можуть прочитати те саме
   // число. Найгірше, що з цього виходить — кілька зайвих заявок понад
@@ -163,7 +183,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (age) lines.push(`Давність: ${age}`);
   if (car) lines.push(`Авто: ${car}`);
   lines.push(`Сторінка: ${page}`, `Час: ${time}`);
-  if (!hasPhoto) lines.push('', 'Без фото');
+  if (oversized) lines.push('', '⚠️ Фото завелике — передзвоніть і попросіть надіслати');
+  else if (!hasPhoto) lines.push('', 'Без фото');
   const caption = lines.join('\n');
 
   const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;

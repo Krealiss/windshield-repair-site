@@ -402,10 +402,17 @@ iframe, не ставити React заради одного компонента
 
 Один делегований слухач у `src/components/Analytics.astro` ловить усі
 конверсійні кліки. Події: `click_phone`, `click_viber`, `click_telegram`,
-`form_submit`, `scroll_75`.
+`form_submit`, `form_step`, `scroll_75`.
+
+`form_step` шле скрипт форми заявки (`src/components/LeadForm.astro`) при
+кожному переході між кроками майстра — несе номер кроку (`step`), на який
+перейшли. Без неї неможливо дізнатися, на якому екрані майстра люди йдуть.
 
 Атрибут `data-cta` на посиланні дає розбивку за місцем: `header`, `menu`,
-`hero`, `sticky`, `contacts`, `form_home`.
+`hero`, `sticky`, `contacts`. Значення `form_home`, яке форма заявки
+ставить через проп `placement`, сюди не належить: слухач читає `data-cta`
+лише з `a[href]` (`tel:`/`viber:`/`t.me`), а кнопка відправки форми —
+не посилання, тож це значення в аналітику не потрапляє.
 
 GTM вантажиться через 1,2 с після `load` — аналітика не впливає на LCP.
 
