@@ -276,8 +276,9 @@ npm run telegram:test
 
 ### У продакшні
 
-Ті самі дві змінні задаються в Cloudflare Pages → Settings →
-Environment variables, **обидві типу Secret**. `.dev.vars` потрібен
+Ті самі три змінні (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+`TELEGRAM_WEBHOOK_SECRET`) задаються в Cloudflare Pages → Settings →
+Environment variables, **усі три типу Secret**. `.dev.vars` потрібен
 тільки для локального запуску.
 
 ---
@@ -299,33 +300,84 @@ Environment variables, **обидві типу Secret**. `.dev.vars` потрі�
 Натискання переписує ту саму картку, а не надсилає нову: одна заявка —
 одне повідомлення.
 
-Усе, що сталося із заявкою, лежить у таблиці `leads` бази D1. Номер у
-картці — це `id` рядка. Схема — у `migrations/0001_leads.sql`.
+Натиснути двічі не страшно: повтор того самого натиску (людина тапнула
+вдруге, Telegram повторив доставку, двоє натиснули одночасно) нічого не
+переписує — бот відповідає підказкою «Заявка вже в цьому стані».
 
-**Перед першим розгортанням треба створити базу й застосувати міграцію.**
-Інакше кожна заявка приходитиме з рядком «⚠️ Заявку не збережено», і
-ніхто цього не помітить, поки не почне рахувати.
+Усе, що сталося із заявкою, лежить у таблиці `leads` бази D1. Номер у
+картці — це `id` рядка. Схема — у теці `migrations/`:
+`0001_leads.sql` (таблиця) і `0002_notes.sql` (колонка `notes`, у якій
+живуть попередження про фото — інакше перший же натиск кнопки стирав би
+їх із картки).
+
+**Перед першим розгортанням треба створити базу й застосувати обидві
+міграції.** Інакше кожна заявка приходитиме з рядком
+«⚠️ Заявку не збережено», і ніхто цього не помітить, поки не почне
+рахувати.
 
 ```bash
-npx wrangler d1 create avtoskloua
-npx wrangler d1 execute avtoskloua --remote --file=migrations/0001_leads.sql
+npx wrangler d1 create leads
+npx wrangler d1 execute leads --remote --file=migrations/0001_leads.sql
+npx wrangler d1 execute leads --remote --file=migrations/0002_notes.sql
 ```
+
+Імʼя бази — `leads` (`avtoskloua` — це імʼя воркера, не бази; воно стоїть
+у `name` конфігу). Файли перелічені по черзі навмисно: у продакшні немає
+таблиці відміток, тож застосовувати їх треба руками й у порядку номерів.
+Повторний прогін `0002` впаде з `duplicate column name: notes` — це
+нешкідливо й означає, що колонка вже на місці.
 
 Далі в Cloudflare Pages → Settings → Functions → D1 bindings додати
 привʼязку з іменем `DB` до створеної бази.
 
-**Локально команди `wrangler d1 execute` йдуть інакше** — через
-`wrangler.local.toml` у корені проєкту:
+**Локально міграції накочуються інакше** — командою, яка сама пам'ятає,
+що вже застосовано (таблиця `d1_migrations` у базі):
 
 ```bash
-npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --file=migrations/0001_leads.sql
+npx wrangler d1 migrations apply DB --local --persist-to .wrangler/state -c wrangler.local.toml
 ```
 
-Цей файл потрібен лише для локальної розробки: `wrangler pages dev`
-розуміє привʼязку з прапорця (`--d1 DB`), а `wrangler d1 execute` — ні,
-йому завжди треба конфіг. У git файл не потрапляє (`wrangler.local.toml`
-у `.gitignore`) — у продакшні привʼязка задається в панелі Cloudflare
-Pages, і цей файл там не потрібен.
+Вона бере всі файли з `migrations/` за порядком номерів; прогнати її
+двічі безпечно — другого разу вона просто нічого не знайде. Перевірити,
+що колонки на місці:
+
+```bash
+npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml --command "PRAGMA table_info(leads)"
+```
+
+**Чому локальні команди різняться від продакшнових.** `wrangler pages dev`
+розуміє привʼязку з прапорця (`--d1 DB`), а `wrangler d1 …` — ні, тож
+локально їм завжди потрібен `-c wrangler.local.toml`. Команда
+`d1 execute <імʼя> --remote` натомість звертається до бази **за іменем**
+через API акаунта, і конфігу не потребує — саме тому продакшнові рядки
+вище йдуть без `-c`. А от `d1 migrations apply --remote` конфіг вимагає
+(«No configuration file found. Create a wrangler.jsonc file to define
+your D1 database»), і той конфіг мусив би містити справжній
+`database_id`, який суперечить локальному `"DB"` — тому в продакшні
+міграції застосовуються файлами, а не цією командою.
+
+У git `wrangler.local.toml` не потрапляє (він у `.gitignore`), тож у
+свіжому клоні його треба створити самому. Ось увесь вміст:
+
+```toml
+# Тільки для локальних команд wrangler d1 — у git не потрапляє.
+#
+# Потрібен, бо `wrangler d1 execute` не вміє брати привʼязку з
+# прапорця, як це робить `pages dev --d1 DB`. У продакшні привʼязка
+# задається в панелі Cloudflare Pages, і цього файлу там немає.
+#
+# database_id навмисно "DB", а не довільний рядок: саме такий id
+# `wrangler pages dev dist --d1 DB` підставляє сам, коли прапорець не
+# містить `=<ref>`. Локальне сховище D1 — файл на диску, підписаний
+# хешем цього id, тож без збігу `d1 execute` і `pages dev` бачили б
+# дві різні порожні бази.
+name = "avtoskloua"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leads"
+database_id = "DB"
+```
 
 `database_id` у ньому мусить бути саме `"DB"`, а не довільний рядок:
 локальне сховище D1 — файл на диску, підписаний хешем цього id. Якщо

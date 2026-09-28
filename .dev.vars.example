@@ -7,8 +7,11 @@
 # імені вашого бота і читати заявки клієнтів.
 #
 # wrangler pages dev підхоплює цей файл сам, передавати нічого не треба.
-# Ті самі дві змінні в продакшні задаються в Cloudflare Pages →
-# Settings → Environment variables, обидві типу Secret.
+# Ті самі три змінні в продакшні задаються в Cloudflare Pages →
+# Settings → Environment variables, усі три типу Secret.
+#
+# Значення можна брати в лапки, а можна без: і wrangler, і скрипти
+# проєкту лапки знімають однаково.
 
 # Видає @BotFather після /newbot. Виглядає як 1234567890:AA...
 TELEGRAM_BOT_TOKEN=
