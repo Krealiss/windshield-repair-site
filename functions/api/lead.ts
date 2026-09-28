@@ -96,7 +96,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const age = AGES.includes(ageRaw) ? ageRaw : '';
   const honeypot = clean(form.get('company'), MAX_FIELD_CHARS);
   const elapsed = Number(form.get('elapsed') ?? 0);
-  const page = clean(form.get('page'), 120) || '/';
 
   // ── 2. Антиспам ─────────────────────────────────────────
   // Обидві перевірки тихі: бот отримує «успіх» і вважає, що спрацював.

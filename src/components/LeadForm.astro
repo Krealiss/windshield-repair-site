@@ -570,7 +570,6 @@ const { placement = 'form', hours = [] } = Astro.props;
     fd.set('name', nameValue);
     fd.set('phone', value.startsWith('+') ? value : `+${value}`);
     fd.set('elapsed', String(Date.now() - openedAt)); // боти сабмітять миттєво
-    fd.set('page', location.pathname);
 
     /*
       Знімків може бути кілька — підказка просить різні ракурси.
