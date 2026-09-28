@@ -4,37 +4,22 @@
  *   npm run telegram:webhook -- https://avtoskloua.com/api/tg
  *   npm run telegram:webhook -- --delete
  *
- * Токен і секрет читаються з .dev.vars і НІКОЛИ не друкуються — ані
- * повністю, ані частинами. Той самий принцип, що й у
- * telegram-chat-id.mjs.
+ * Токен і секрет читаються з .dev.vars (спільним парсером із
+ * _dev-vars.mjs) і НІКОЛИ не друкуються — ані повністю, ані частинами.
+ * Той самий принцип, що й у telegram-chat-id.mjs.
  *
  * Скрипт спершу показує, що зареєстровано зараз: мовчки затирати
  * чужий вебхук не можна — на ньому може працювати щось інше.
  */
-import { readFileSync } from 'node:fs';
-
-const FILE = '.dev.vars';
+import { DEV_VARS as FILE, readDevVars } from './_dev-vars.mjs';
 
 const die = (msg) => {
   console.error(`\n✖  ${msg}\n`);
   process.exit(1);
 };
 
-let raw;
-try {
-  raw = readFileSync(FILE, 'utf8');
-} catch {
-  die(`Немає файлу ${FILE}.\n   Створіть його зі зразка:  cp .dev.vars.example .dev.vars`);
-}
-
-const env = Object.fromEntries(
-  raw
-    .split('\n')
-    .filter((l) => l.trim() && !l.trim().startsWith('#'))
-    .map((l) => {
-      const i = l.indexOf('=');
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    })
+const env = readDevVars(() =>
+  die(`Немає файлу ${FILE}.\n   Створіть його зі зразка:  cp .dev.vars.example .dev.vars`)
 );
 
 const token = env.TELEGRAM_BOT_TOKEN;

@@ -9,37 +9,25 @@
  * це або сторонній бот, якому доведеться довіритися, або curl із
  * токеном у командному рядку, звідки він потрапляє в історію оболонки.
  *
- * Токен читається з .dev.vars і НІКОЛИ не друкується — ані повністю,
- * ані частково. Усе відбувається на вашій машині.
+ * Токен читається з .dev.vars (спільним парсером із _dev-vars.mjs) і
+ * НІКОЛИ не друкується — ані повністю, ані частково. Усе відбувається
+ * на вашій машині.
  */
 
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-
-const FILE = '.dev.vars';
+import { DEV_VARS as FILE, readDevVars } from './_dev-vars.mjs';
 
 const die = (msg) => {
   console.error(`\n✖  ${msg}\n`);
   process.exit(1);
 };
 
-if (!existsSync(FILE)) {
+const env = readDevVars(() =>
   die(
     `Немає файлу ${FILE}.\n` +
       '   Створіть його з зразка:  cp .dev.vars.example .dev.vars\n' +
       '   і вставте туди токен від @BotFather.'
-  );
-}
-
-/** Розбір KEY=VALUE: без залежностей, бо формат простіший за будь-яку бібліотеку */
-const env = {};
-for (const line of (await readFile(FILE, 'utf8')).split('\n')) {
-  const t = line.trim();
-  if (!t || t.startsWith('#')) continue;
-  const i = t.indexOf('=');
-  if (i === -1) continue;
-  env[t.slice(0, i).trim()] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '');
-}
+  )
+);
 
 const token = env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -138,7 +126,10 @@ let updates;
           '   2) Якщо цей webhook вам більше не потрібен — зніміть його:\n' +
           '      npm run telegram:chat-id -- --drop-webhook\n' +
           '      Увага: усе, що зараз отримує оновлення за цією адресою,\n' +
-          '      після цього працювати перестане.'
+          '      після цього працювати перестане. Зокрема, якщо на ній\n' +
+          '      висить /api/tg цього ж сайту, кнопки під заявками\n' +
+          '      перестануть міняти стан — поверніть вебхук командою:\n' +
+          '      npm run telegram:webhook -- <адреса>'
       );
     }
 
@@ -147,6 +138,7 @@ let updates;
     // саме вони й потрібні, щоб побачити chat_id
     await call('deleteWebhook');
     console.log('   Готово.');
+    console.log('   Повернути його потім: npm run telegram:webhook -- <адреса>');
 
     const again = await raw('getUpdates');
     if (!again.ok) die(`Telegram відповів помилкою: ${again.why}`);
