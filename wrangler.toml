@@ -1,7 +1,0 @@
-name = "avtoskloua"
-
-# D1 база для локальної розробки
-[[d1_databases]]
-binding = "DB"
-database_name = "leads"
-database_id = "local"
