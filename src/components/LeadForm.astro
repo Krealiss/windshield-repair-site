@@ -18,7 +18,10 @@ const { placement = 'form' } = Astro.props;
 
 <section class="band band--tint lead" id="lead">
   <h2 class="lead__title">Не впевнені, чи ремонтується ваш скол?</h2>
-  <p class="lead__sub">Надішліть фото — відповім із ціною протягом 15 хвилин.</p>
+  <p class="lead__sub">
+    Передзвонимо протягом 15 хвилин, а якщо вже пізно — наступного дня
+    в робочі години.
+  </p>
 
   <!--
     Справжній <form>, а не набір полів у <div>.
@@ -27,10 +30,11 @@ const { placement = 'form' } = Astro.props;
     на мобільній клавіатурі) не робив нічого, і частина людей вважала
     форму зламаною.
 
-    method і action заповнені на випадок, коли скрипт не приїхав:
-    тоді браузер надсилає форму сам. Без method="post" він зробив би
-    GET і виставив чужий номер телефона в адресний рядок.
-    Коли скрипт працює — він перехоплює submit і форма не перезавантажується.
+    method і action заповнені на випадок, коли скрипт не приїхав: тоді
+    браузер надсилає форму сам, з усіма чотирма кроками одразу, і
+    функція відповідає перенаправленням на сторінку подяки. Без
+    method="post" браузер зробив би GET і виставив чужий номер телефона
+    в адресний рядок.
   -->
   <form
     class="lead__fields"
@@ -40,20 +44,97 @@ const { placement = 'form' } = Astro.props;
     enctype="multipart/form-data"
     novalidate
   >
-    <label class="lead__label" for="lead-phone">Ваш телефон</label>
-    <input
-      id="lead-phone"
-      name="phone"
-      type="tel"
-      inputmode="tel"
-      autocomplete="tel"
-      placeholder="+380 __ ___ __ __"
-      required
-    />
+    <!-- Прогрес має сенс лише тоді, коли кроки справді по одному,
+         тому його показує скрипт -->
+    <div class="lead__progress" id="lead-progress" hidden>
+      <p class="lead__step-of" id="lead-step-of">Крок 1 з 4</p>
+      <div class="lead__bar" aria-hidden="true"><span id="lead-bar-fill"></span></div>
+    </div>
 
-    <label class="lead__label" for="lead-photo">Фото сколу (необовʼязково)</label>
-    <input id="lead-photo" name="photo" type="file" accept="image/*" capture="environment" />
-    <p class="lead__hint" id="lead-photo-info" hidden></p>
+    <!--
+      Кожен крок — fieldset із питанням у legend. Читалка екрана
+      вимовляє legend перед полями всередині, тож людина чує питання,
+      а не голий набір варіантів.
+
+      tabindex="-1" на legend — щоб скрипт міг перевести туди фокус
+      при зміні кроку. Мишею й клавіатурою він лишається недосяжним.
+    -->
+    <fieldset class="lead__step">
+      <legend class="lead__q" tabindex="-1">Фото сколу</legend>
+      <input id="lead-photo" name="photo" type="file" accept="image/*" capture="environment" />
+      <p class="lead__hint" id="lead-photo-info" hidden></p>
+      <p class="lead__hint">Не обов'язково — можна пропустити.</p>
+    </fieldset>
+
+    <fieldset class="lead__step">
+      <legend class="lead__q" tabindex="-1">Як давно пошкодили скло?</legend>
+      <label class="lead__opt">
+        <input type="radio" name="age" value="До 2 днів" />
+        <span>До 2 днів</span>
+      </label>
+      <label class="lead__opt">
+        <input type="radio" name="age" value="Тиждень" />
+        <span>Тиждень</span>
+      </label>
+      <label class="lead__opt">
+        <input type="radio" name="age" value="Більше тижня" />
+        <span>Більше тижня</span>
+      </label>
+      <p class="lead__hint">Не обов'язково — можна пропустити.</p>
+    </fieldset>
+
+    <fieldset class="lead__step">
+      <legend class="lead__q" tabindex="-1">Марка та рік випуску</legend>
+      <label class="lead__label" for="lead-car">Автомобіль</label>
+      <input
+        id="lead-car"
+        name="car"
+        type="text"
+        autocomplete="off"
+        maxlength="80"
+        placeholder="Напр. Skoda Octavia 2016"
+      />
+      <p class="lead__hint">Не обов'язково — можна пропустити.</p>
+    </fieldset>
+
+    <fieldset class="lead__step">
+      <legend class="lead__q" tabindex="-1">Як до вас звертатися?</legend>
+
+      <label class="lead__label" for="lead-name">Ім'я</label>
+      <input
+        id="lead-name"
+        name="name"
+        type="text"
+        autocomplete="given-name"
+        maxlength="80"
+        required
+      />
+
+      <label class="lead__label" for="lead-phone">Телефон</label>
+      <input
+        id="lead-phone"
+        name="phone"
+        type="tel"
+        inputmode="tel"
+        autocomplete="tel"
+        placeholder="+380 __ ___ __ __"
+        required
+      />
+
+      <!--
+        Прапорець і підпис — сусіди, а не вкладені один в одного.
+        Посилання всередині <label> відкривало б політику і водночас
+        перемикало згоду: людина натискає «почитати» і не помічає,
+        що зняла галочку.
+      -->
+      <div class="lead__consent">
+        <input id="lead-consent" name="consent" type="checkbox" required />
+        <label for="lead-consent">Погоджуюсь на обробку персональних даних</label>
+      </div>
+      <p class="lead__policy">
+        <a href="/polityka-konfidentsiynosti/">Що ми робимо з вашим номером</a>
+      </p>
+    </fieldset>
 
     <!-- Honeypot: реальна людина цього поля не бачить, бот заповнює -->
     <div class="lead__trap" aria-hidden="true">
@@ -62,27 +143,34 @@ const { placement = 'form' } = Astro.props;
     </div>
 
     <!--
-      Прапорець і підпис — сусіди, а не вкладені один в одного.
-      Посилання всередині <label> відкривало б політику і водночас
-      перемикало згоду: людина натискає «почитати» і не помічає,
-      що зняла галочку.
+      Кнопки навігації приховані в розмітці, а кнопка відправки — ні.
+      Це і є стан без JS: усі чотири кроки видно, і одна кнопка їх
+      надсилає. Скрипт міняє видимість на протилежну.
     -->
-    <div class="lead__consent">
-      <input id="lead-consent" name="consent" type="checkbox" required />
-      <label for="lead-consent">Погоджуюсь на обробку персональних даних</label>
+    <div class="lead__nav">
+      <button class="btn btn--ghost" id="lead-back" type="button" hidden>← Назад</button>
+      <button class="btn btn--primary" id="lead-next" type="button" hidden>Далі →</button>
+      <button class="btn btn--primary" id="lead-submit" type="submit" data-cta={placement}>
+        Залишити заявку
+      </button>
     </div>
-    <p class="lead__policy">
-      <a href="/polityka-konfidentsiynosti/">Що ми робимо з вашим номером</a>
-    </p>
 
-    <button class="btn btn--primary" id="lead-submit" type="submit" data-cta={placement}>
-      Надіслати
-    </button>
     <p class="lead__status" id="lead-status" role="status" aria-live="polite"></p>
   </form>
 </section>
 
 <style>
+  /*
+    Один із тих рядків, без яких не працює нічого.
+
+    Атрибут hidden ховає елемент правилом display: none у стилях
+    браузера. Будь-яке наше display перемагає його — авторські стилі
+    сильніші за браузерні незалежно від специфічності. А display у нас
+    є і в кроків (grid), і в кнопок (клас .btn ставить inline-flex).
+    Без цього рядка hidden не ховає ні кроки, ні кнопки.
+  */
+  [hidden] { display: none !important; }
+
   .lead__trap {
     position: absolute;
     left: -9999px;
@@ -90,6 +178,7 @@ const { placement = 'form' } = Astro.props;
     height: 1px;
     overflow: hidden;
   }
+
   /*
     minmax(0, 1fr), а не типове auto: у input[type=file] велика власна
     мінімальна ширина, і колонка розтягувалася під нього, виносячи
@@ -110,13 +199,13 @@ const { placement = 'form' } = Astro.props;
     text-wrap: balance;
     max-width: 24ch;
   }
-  .lead__sub { margin: 0 0 0.9rem; color: var(--muted); max-width: 44ch; }
+  .lead__sub { margin: 0 0 0.9rem; color: var(--muted); max-width: 46ch; }
 
   /* Форма — біла картка на кольоровій смузі: око саме знаходить,
      де тут потрібно щось зробити */
   .lead__fields {
     display: grid;
-    gap: 0.55rem;
+    gap: 0.75rem;
     width: 100%;
     max-width: 30rem;
     padding: 1.25rem;
@@ -124,17 +213,87 @@ const { placement = 'form' } = Astro.props;
     border-radius: var(--r-lg);
     background: var(--surface);
     box-shadow: var(--shadow);
+    /* Скрипт прокручує сюди при зміні кроку, а шапка липка —
+       без цього відступу картка ховалася б під нею */
+    scroll-margin-top: calc(var(--hdr-h) + 1rem);
+    /* Кроки різної висоти. Без мінімальної висоти картка стрибає при
+       кожному переході, і кнопка «Далі» тікає з-під пальця.
+       Значення — висота найвищого кроку, виміряна в Задачі 3. */
+    min-height: 19rem;
   }
+
+  .lead__progress { display: grid; gap: 0.4rem; }
+  .lead__step-of { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .lead__bar {
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    overflow: hidden;
+  }
+  .lead__bar span {
+    display: block;
+    height: 100%;
+    width: 25%;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width 0.2s ease-out;
+  }
+
+  /*
+    min-width: 0 обов'язково: у fieldset власна мінімальна ширина за
+    вмістом, і на вузькому екрані він розпирає картку так само, як
+    колись input[type=file] розпирав усю секцію.
+  */
+  .lead__step {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  /*
+    legend стилізується обережно. У нього особливий режим відображення,
+    і спроби зробити з нього звичайний блок дають різний результат у
+    різних браузерах. Міняємо тільки кегль, вагу й відступ — це
+    працює скрізь.
+  */
+  .lead__q {
+    padding: 0;
+    margin-bottom: 0.2rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Варіант відповіді — ціла смужка, а не сама крапка радіокнопки:
+     48px висоти і весь рядок як ціль дотику */
+  .lead__opt {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 48px;
+    padding: 0 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-size: 0.98rem;
+  }
+  .lead__opt input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+  /* Підсвітка обраного. Якщо браузер не розуміє :has, зникає лише
+     підсвітка — сама радіокнопка лишається позначеною */
+  .lead__opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 
   .lead__label { font-size: 0.9rem; font-weight: 600; }
   .lead__hint { font-size: 0.8rem; color: var(--muted); margin: 0; }
   .lead__consent { display: flex; gap: 0.55rem; align-items: flex-start; margin-top: 0.35rem; }
   .lead__consent input { margin: 0.2rem 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
   .lead__consent label { font-size: 0.85rem; line-height: 1.45; }
-  .lead__policy { margin: 0 0 0.35rem; font-size: 0.85rem; }
+  .lead__policy { margin: 0; font-size: 0.85rem; }
   .lead__policy a { color: var(--accent); }
 
-  input[type='tel'], input[type='file'] {
+  input[type='tel'], input[type='text'], input[type='file'] {
     min-height: 48px;
     padding: 0 0.8rem;
     border: 1px solid var(--border);
@@ -143,18 +302,18 @@ const { placement = 'form' } = Astro.props;
     font-size: 16px; /* менше 16px — iOS зумить сторінку при фокусі */
     font-family: inherit;
     color: inherit;
-  }
-  input[type='file'] {
-    padding: 0.6rem 0.8rem;
-    font-size: 0.9rem;
     width: 100%;
     min-width: 0;
   }
-  input[type='tel']:focus-visible, input[type='file']:focus-visible { outline-offset: 1px; }
-  input[type='tel'][aria-invalid='true'] { border-color: var(--danger); background: var(--danger-soft); }
+  input[type='file'] { padding: 0.6rem 0.8rem; font-size: 0.9rem; }
+  input[type='tel']:focus-visible,
+  input[type='text']:focus-visible,
+  input[type='file']:focus-visible { outline-offset: 1px; }
+  input[aria-invalid='true'] { border-color: var(--danger); background: var(--danger-soft); }
 
-  #lead-submit { width: 100%; }
-  #lead-submit[disabled] { opacity: 0.6; }
+  .lead__nav { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.25rem; }
+  .lead__nav .btn { flex: 1 1 8rem; }
+  .lead__nav .btn[disabled] { opacity: 0.6; }
 
   .lead__status { font-size: 0.9rem; line-height: 1.45; min-height: 1.2em; margin: 0; color: var(--text); }
 </style>
