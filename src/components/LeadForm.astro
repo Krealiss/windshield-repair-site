@@ -89,15 +89,28 @@ const { placement = 'form', hours = [] } = Astro.props;
            без aria-labelledby читалка екрана оголосила б кнопку вибору
            файлу без жодної назви -->
       <legend class="lead__q" id="lead-photo-q" tabindex="-1">Фото сколу</legend>
+      <!--
+        multiple, бо підказка нижче просить кілька знімків. Просити
+        два ракурси полем на один файл означало б давати пораду, яку
+        форма не дає виконати: другий знімок просто замінив би перший.
+
+        capture="environment" тут навмисно немає. З ним частина
+        браузерів відкриває одразу камеру й не дає вибрати кілька
+        файлів — а зняти скол із двох боків за один раз неможливо.
+      -->
       <input
         id="lead-photo"
         name="photo"
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         aria-labelledby="lead-photo-q"
       />
       <p class="lead__hint" id="lead-photo-info" hidden></p>
+      <p class="lead__hint">
+        Краще зробити фото з різних ракурсів — збоку й прямо: так видно
+        глибину сколу.
+      </p>
       <p class="lead__hint">Не обов'язково — можна пропустити.</p>
     </fieldset>
 
@@ -408,6 +421,13 @@ const { placement = 'form', hours = [] } = Astro.props;
   const info = $('lead-photo-info');
 
   const MAX_EDGE = 1600;
+  /*
+    Більше трьох знімків оператору не допомагають, а кожен — це ще
+    кілька сотень кілобайт на мобільному інтернеті. Telegram в одному
+    альбомі приймає до десяти, тож запас є; обмеження тут заради
+    швидкості відправки, а не заради Telegram.
+  */
+  const MAX_PHOTOS = 3;
   const TOTAL = steps.length;
   const openedAt = Date.now();
   let current = 1;
@@ -487,17 +507,20 @@ const { placement = 'form', hours = [] } = Astro.props;
 
   photo?.addEventListener('change', () => {
     if (!info) return;
-    const f = photo.files?.[0];
-    // Файл могли й прибрати (повторний діалог зі «Скасувати» в частині
-    // браузерів), тож відсутність файлу теж треба показати — інакше
+    const files = Array.from(photo.files ?? []);
+    // Файли могли й прибрати (повторний діалог зі «Скасувати» в частині
+    // браузерів), тож порожній вибір теж треба показати — інакше
     // підпис «Обрано: …» лишається під порожнім полем
-    if (!f) {
+    if (files.length === 0) {
       info.hidden = true;
       info.textContent = '';
       return;
     }
     info.hidden = false;
-    info.textContent = `Обрано: ${f.name}`;
+    info.textContent =
+      files.length === 1
+        ? `Обрано: ${files[0].name}`
+        : `Обрано знімків: ${files.length}${files.length > MAX_PHOTOS ? `, надішлемо перші ${MAX_PHOTOS}` : ''}`;
   });
 
   /** Повідомлення + фокус на проблемному полі: інакше людина бачить
@@ -549,8 +572,18 @@ const { placement = 'form', hours = [] } = Astro.props;
     fd.set('elapsed', String(Date.now() - openedAt)); // боти сабмітять миттєво
     fd.set('page', location.pathname);
 
-    const file = photo?.files?.[0];
-    if (file) fd.set('photo', await shrink(file), 'skol.jpg');
+    /*
+      Знімків може бути кілька — підказка просить різні ракурси.
+      FormData після new FormData(form) вже містить оригінали, тож
+      спершу прибираємо їх, а потім докладаємо стиснуті: інакше на
+      сервер поїхали б обидві версії, і мобільний інтернет витратився
+      б на файли, які ніхто не прочитає.
+    */
+    const files = Array.from(photo?.files ?? []).slice(0, MAX_PHOTOS);
+    fd.delete('photo');
+    for (let i = 0; i < files.length; i++) {
+      fd.append('photo', await shrink(files[i]), `skol-${i + 1}.jpg`);
+    }
 
     try {
       // Заголовок явний: функція за ним відрізняє скрипт від браузера,

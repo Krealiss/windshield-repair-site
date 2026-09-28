@@ -21,6 +21,10 @@ const RATE_LIMIT = 5;           // заявок на IP
 const RATE_WINDOW = 3600;       // секунд ковзного вікна — див. коментар нижче, п. 4
 const MIN_ELAPSED_MS = 2500;    // швидше — майже напевно бот
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/* Стільки знімків іде в альбом. Те саме число стоїть у формі
+   (MAX_PHOTOS у LeadForm.astro) — вони мусять збігатися, інакше
+   людина надішле більше, ніж оператор побачить. */
+const MAX_PHOTOS = 3;
 const MAX_FIELD_CHARS = 80;
 
 /** Три відповіді кроку «як давно». Будь-що інше ігнорується:
@@ -139,9 +143,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // людина з вимкненими скриптами прикріпила б файл і втратила заявку
   // разом із ним. Той самий принцип, що й нижче для фото, яке не
   // прийняв сам Telegram, — заявка без фото важливіша за фото без заявки.
-  const photo = form.get('photo');
-  const oversized = photo instanceof File && photo.size > MAX_PHOTO_BYTES;
-  const hasPhoto = photo instanceof File && photo.size > 0 && !oversized;
+  /*
+    Знімків може бути кілька: форма просить зняти скол із різних
+    ракурсів, тож поле одне, а файлів під ним — до трьох.
+
+    Завеликі відсіюються поштучно, а не валять усю заявку: втратити
+    один знімок прикро, втратити заявку — неприпустимо. Скільки саме
+    відсіялось, оператор побачить у тексті.
+  */
+  const sent = form.getAll('photo').filter((p): p is File => p instanceof File && p.size > 0);
+  const photos = sent.filter((p) => p.size <= MAX_PHOTO_BYTES).slice(0, MAX_PHOTOS);
+  const oversized = sent.length - photos.length;
+  const hasPhoto = photos.length > 0;
 
   // ── 4. Обмеження частоти ────────────────────────────────
   //
@@ -183,8 +196,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (age) lines.push(`Давність: ${age}`);
   if (car) lines.push(`Авто: ${car}`);
   lines.push(`Сторінка: ${page}`, `Час: ${time}`);
-  if (oversized) lines.push('', '⚠️ Фото завелике — передзвоніть і попросіть надіслати');
-  else if (!hasPhoto) lines.push('', 'Без фото');
+  if (oversized > 0) {
+    lines.push('', `⚠️ Не вмістилося знімків: ${oversized} — передзвоніть і попросіть надіслати`);
+  }
+  if (!hasPhoto) lines.push('', 'Без фото');
   const caption = lines.join('\n');
 
   const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
@@ -195,9 +210,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (hasPhoto) {
       const tg = new FormData();
       tg.set('chat_id', env.TELEGRAM_CHAT_ID);
-      tg.set('caption', caption);
-      tg.set('photo', photo, 'skol.jpg');
-      res = await fetch(`${api}/sendPhoto`, { method: 'POST', body: tg });
+
+      if (photos.length === 1) {
+        tg.set('caption', caption);
+        tg.set('photo', photos[0], 'skol.jpg');
+        res = await fetch(`${api}/sendPhoto`, { method: 'POST', body: tg });
+      } else {
+        /*
+          Кілька знімків ідуть одним альбомом, а не чергою окремих
+          повідомлень: інакше заявка розсипається в чаті на кілька
+          записів, і підпис губиться десь між ними.
+
+          Підпис у Telegram несе лише перший елемент альбому —
+          решта йдуть без тексту, так влаштований sendMediaGroup.
+          Файли додаються окремими полями, а media посилається на
+          них через attach://.
+        */
+        const media = photos.map((_, i) => ({
+          type: 'photo',
+          media: `attach://skol-${i + 1}`,
+          ...(i === 0 ? { caption } : {}),
+        }));
+        tg.set('media', JSON.stringify(media));
+        photos.forEach((p, i) => tg.set(`skol-${i + 1}`, p, `skol-${i + 1}.jpg`));
+        res = await fetch(`${api}/sendMediaGroup`, { method: 'POST', body: tg });
+      }
 
       // Telegram інколи відхиляє зображення (формат, розмір).
       // Втратити фото прикро, втратити заявку — неприпустимо.
