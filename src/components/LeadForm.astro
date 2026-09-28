@@ -219,7 +219,7 @@ const { placement = 'form' } = Astro.props;
     /* Кроки різної висоти. Без мінімальної висоти картка стрибає при
        кожному переході, і кнопка «Далі» тікає з-під пальця.
        Значення — висота найвищого кроку, виміряна в Задачі 3. */
-    min-height: 19rem;
+    min-height: 28.5rem;
   }
 
   .lead__progress { display: grid; gap: 0.4rem; }
@@ -321,17 +321,28 @@ const { placement = 'form' } = Astro.props;
 <script>
   const $ = (id: string) => document.getElementById(id);
   const form = $('lead-form') as HTMLFormElement | null;
+  const steps = Array.from(document.querySelectorAll<HTMLFieldSetElement>('.lead__step'));
+  const progress = $('lead-progress');
+  const stepOf = $('lead-step-of');
+  const barFill = $('lead-bar-fill');
+  const back = $('lead-back') as HTMLButtonElement | null;
+  const next = $('lead-next') as HTMLButtonElement | null;
+  const submit = $('lead-submit') as HTMLButtonElement | null;
+  const status = $('lead-status');
+  const nameEl = $('lead-name') as HTMLInputElement | null;
   const phone = $('lead-phone') as HTMLInputElement | null;
   const photo = $('lead-photo') as HTMLInputElement | null;
   const consent = $('lead-consent') as HTMLInputElement | null;
-  const btn = $('lead-submit') as HTMLButtonElement | null;
-  const status = $('lead-status');
   const info = $('lead-photo-info');
 
   const MAX_EDGE = 1600;
+  const TOTAL = steps.length;
   const openedAt = Date.now();
+  let current = 1;
 
-  /** Стискання на клієнті: 8 МБ → ~300 КБ */
+  /** Стискання на клієнті: 8 МБ → ~300 КБ.
+      Знімок із сучасного телефона на мобільному інтернеті вантажиться
+      30+ секунд, і людина йде, не дочекавшись. */
   async function shrink(file: File): Promise<Blob> {
     if (!file.type.startsWith('image/')) return file;
     try {
@@ -353,6 +364,55 @@ const { placement = 'form' } = Astro.props;
     }
   }
 
+  /** Перемальовує крок. moveFocus=false лише на першому показі:
+      забирати фокус у людини, яка щойно відкрила сторінку, не можна. */
+  function render(moveFocus: boolean) {
+    steps.forEach((s, i) => {
+      s.hidden = i + 1 !== current;
+    });
+    if (stepOf) stepOf.textContent = `Крок ${current} з ${TOTAL}`;
+    if (barFill) barFill.style.width = `${(current / TOTAL) * 100}%`;
+    if (back) back.hidden = current === 1;
+    if (next) next.hidden = current === TOTAL;
+    if (submit) submit.hidden = current !== TOTAL;
+
+    if (!moveFocus) return;
+    // Фокус на питання нового кроку. Без цього людина з читалкою не
+    // дізнається, що екран змінився, а Tab піде з елемента, якого
+    // вже немає на екрані.
+    steps[current - 1]?.querySelector<HTMLElement>('.lead__q')?.focus();
+  }
+
+  function go(delta: number) {
+    const target = Math.min(TOTAL, Math.max(1, current + delta));
+    if (target === current) return;
+    current = target;
+    render(true);
+
+    // Прокручуємо тільки коли верх картки пішов за межі екрана —
+    // інакше сторінка смикається там, де й так усе видно
+    if (form && form.getBoundingClientRect().top < 0) {
+      form.scrollIntoView({ block: 'start' });
+    }
+
+    // Без цієї події неможливо дізнатися, на якому екрані люди йдуть,
+    // а це головне питання до будь-якого майстра
+    window.dataLayer?.push({
+      event: 'form_step',
+      step: current,
+      page_path: location.pathname,
+    });
+  }
+
+  // Скрипт приїхав: показуємо прогрес і лишаємо один крок.
+  // До цієї миті видно всі чотири — саме так форма працює без JS.
+  if (form && TOTAL > 1) {
+    if (progress) progress.hidden = false;
+    render(false);
+    next?.addEventListener('click', () => go(1));
+    back?.addEventListener('click', () => go(-1));
+  }
+
   photo?.addEventListener('change', () => {
     const f = photo.files?.[0];
     if (!f || !info) return;
@@ -360,16 +420,33 @@ const { placement = 'form' } = Astro.props;
     info.textContent = `Обрано: ${f.name}`;
   });
 
-  /** Повідомлення + фокус на проблемному полі: інакше на довгій сторінці
-      людина бачить текст помилки, але не бачить, куди він показує */
+  /** Повідомлення + фокус на проблемному полі: інакше людина бачить
+      текст помилки, але не бачить, куди він показує */
   function fail(msg: string, focus?: HTMLElement | null) {
     if (status) status.textContent = msg;
-    if (btn) { btn.disabled = false; btn.textContent = 'Надіслати'; }
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = 'Залишити заявку';
+    }
     focus?.focus();
   }
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // Enter у текстовому полі надсилає форму. Поки кроки не пройдені,
+    // це має вести далі, а не відправляти напівпорожню заявку.
+    if (current < TOTAL) {
+      go(1);
+      return;
+    }
+
+    const nameValue = (nameEl?.value ?? '').trim();
+    if (!nameValue) {
+      nameEl?.setAttribute('aria-invalid', 'true');
+      return fail('Як до вас звертатися?', nameEl);
+    }
+    nameEl?.removeAttribute('aria-invalid');
 
     const value = (phone?.value ?? '').replace(/[^\d+]/g, '');
     if (!/^\+?380\d{9}$/.test(value)) {
@@ -380,10 +457,14 @@ const { placement = 'form' } = Astro.props;
 
     if (!consent?.checked) return fail('Потрібна згода на обробку даних', consent);
 
-    if (btn) { btn.disabled = true; btn.textContent = 'Надсилаю…'; }
+    if (submit) {
+      submit.disabled = true;
+      submit.textContent = 'Надсилаю…';
+    }
     if (status) status.textContent = '';
 
     const fd = new FormData(form);
+    fd.set('name', nameValue);
     fd.set('phone', value.startsWith('+') ? value : `+${value}`);
     fd.set('elapsed', String(Date.now() - openedAt)); // боти сабмітять миттєво
     fd.set('page', location.pathname);
@@ -392,7 +473,13 @@ const { placement = 'form' } = Astro.props;
     if (file) fd.set('photo', await shrink(file), 'skol.jpg');
 
     try {
-      const res = await fetch('/api/lead', { method: 'POST', body: fd });
+      // Заголовок явний: функція за ним відрізняє скрипт від браузера,
+      // який надсилає форму сам, і другому відповідає перенаправленням
+      const res = await fetch('/api/lead', {
+        method: 'POST',
+        headers: { accept: 'application/json' },
+        body: fd,
+      });
       if (!res.ok) throw new Error(String(res.status));
       window.dataLayer?.push({ event: 'form_submit', page_path: location.pathname });
       location.href = '/thanks/';
