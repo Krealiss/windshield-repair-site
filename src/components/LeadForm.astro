@@ -204,7 +204,15 @@ const { placement = 'form' } = Astro.props;
   /* Форма — біла картка на кольоровій смузі: око саме знаходить,
      де тут потрібно щось зробити */
   .lead__fields {
-    display: grid;
+    /*
+      Колонка на flex, а не grid: зайвий простір від min-height має
+      забирати лише крок (.lead__step { flex-grow: 1 }), а не
+      розподілятися порівну між усіма рядками картки. Grid зі
+      стандартним align-content розтягував би прогрес, крок, кнопки
+      й статус одночасно — саме тому раніше кнопки «їздили».
+    */
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
     width: 100%;
     max-width: 30rem;
@@ -243,13 +251,20 @@ const { placement = 'form' } = Astro.props;
     min-width: 0 обов'язково: у fieldset власна мінімальна ширина за
     вмістом, і на вузькому екрані він розпирає картку так само, як
     колись input[type=file] розпирав усю секцію.
+
+    flex: 1 1 auto — саме крок (а не прогрес чи кнопки) забирає
+    вільне місце від min-height картки. align-content: start не дає
+    цьому простору розповзтися між власними рядками кроку (легенда,
+    варіанти) — він лишається одним блоком під вмістом, перед кнопками.
   */
   .lead__step {
+    flex: 1 1 auto;
     min-width: 0;
     margin: 0;
     padding: 0;
     border: 0;
     display: grid;
+    align-content: start;
     gap: 0.5rem;
   }
 
