@@ -11,7 +11,7 @@
  * Секрет (Pages → Settings → Environment variables, тип Secret):
  *   TELEGRAM_WEBHOOK_SECRET
  */
-import { cardText, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
+import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -98,7 +98,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return okEmpty();
     }
 
-    const who = cq.from?.first_name || cq.from?.username || 'невідомо';
+    // Ім'я в Telegram людина ставить собі сама: без clean() перенос
+    // рядка всередині нього дописав би в картку рядок, що виглядає як
+    // справжнє поле заявки. Якщо після очищення нічого не лишилось —
+    // «невідомо», інакше в картці був би порожній рядок після «Взяв:».
+    const who = clean(cq.from?.first_name || cq.from?.username || 'невідомо', 80) || 'невідомо';
 
     await env.DB.prepare(
       `UPDATE leads

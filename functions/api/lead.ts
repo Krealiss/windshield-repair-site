@@ -11,7 +11,7 @@
  *   RATE  →  KV namespace для обмеження частоти
  */
 
-import { cardText, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
+import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -73,34 +73,6 @@ const fail = (status: number, html: boolean) =>
         status,
         headers: { 'content-type': 'application/json' },
       });
-
-/**
- * Приводить текст із форми до вигляду, придатного для повідомлення.
- *
- * Будь-який пробільний символ — зокрема перенос рядка — стає звичайним
- * пробілом. Це не косметика: повідомлення в Telegram складається з
- * рядків «Поле: значення», і ім'я з переносом усередині дописало б у
- * заявку зайвий рядок, який виглядає як справжнє поле. Наприклад,
- * чужий номер телефона.
- *
- * \s у JS НЕ покриває NEL (U+0085), хоча за UAX #14 це обов'язковий
- * розрив рядка для рушіїв розкладки на базі Qt (Telegram Desktop) і
- * для Android/iOS: `\s` в ECMAScript — це фіксований список кодових
- * точок (WhiteSpace + LineTerminator), а не Unicode-властивість
- * White_Space, у яку U+0085 входить. Тому клас нижче додає його явно —
- * перевірено в Node на LF, CR, VT, FF, TAB, U+2028, U+2029, NBSP і
- * U+0085 (звіт правки: final-fix-report.md, знахідка 2).
- *
- * Довжина обрізається, бо підпис до фотографії в Telegram обмежений
- * 1024 символами, і заявка, яка через довге поле не надіслалась,
- * гірша за обрізане ім'я.
- */
-const clean = (value: FormDataEntryValue | null, max: number) =>
-  String(value ?? '')
-    .split(/[\s\u0085]+/)
-    .join(' ')
-    .trim()
-    .slice(0, max);
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const html = wantsHtml(request);
