@@ -182,22 +182,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     actor_name: null,
   };
 
-  const notes: string[] = [];
+  let previous: string | null = null;
 
   if (env.DB) {
+    // Два окремих try: падіння пошуку попереднього звернення не має
+    // забирати з собою запис заявки. Рядок у базі важливіший за
+    // довідковий рядок у картці.
     try {
       // Попереднє звернення шукаємо до вставки, інакше знайдемо
-      // самих себе
+      // самих себе. `created_at < ?` — та сама умова, що й у tg.ts:
+      // «попереднє» означає раніше за цю заявку, а не «будь-яке інше»
       const before = await env.DB.prepare(
-        'SELECT created_at FROM leads WHERE phone = ? ORDER BY created_at DESC LIMIT 1'
+        'SELECT created_at FROM leads WHERE phone = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1'
       )
-        .bind(phone)
+        .bind(phone, createdAt)
         .first<{ created_at: string }>();
 
-      if (before) {
-        notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
-      }
+      if (before) previous = before.created_at;
+    } catch {
+      // Мовчки: причина цікава нам, а не людині, яка чекає на відповідь
+    }
 
+    try {
       // last_row_id, а не RETURNING: перше є в D1 завжди, друге
       // залежить від версії рушія, і мовчазна відмова тут коштувала б
       // номера заявки
@@ -211,13 +217,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const newId = Number(inserted.meta?.last_row_id ?? 0);
       if (newId > 0) lead = { ...lead, id: newId };
     } catch {
-      // Мовчки: причина цікава нам, а не людині, яка чекає на відповідь
+      // Так само мовчки: заявка все одно піде, з ⚠️ у картці
     }
   }
 
-  if (lead.id === 0) notes.push('⚠️ Заявку не збережено');
-
-  // ── 6. Відправка в Telegram ─────────────────────────────
+  // ── 6. Знімки ───────────────────────────────────────────
   //
   // Спершу знімки, далі картка окремим повідомленням. До альбому
   // Telegram не дозволяє прикріпити кнопки, тож картка однакова для
@@ -228,8 +232,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // повідомлення або ховало частину заявки.
   const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
 
-  try {
-    if (hasPhoto) {
+  let photosFailed = false;
+
+  if (hasPhoto) {
+    try {
       const tg = new FormData();
       tg.set('chat_id', env.TELEGRAM_CHAT_ID);
 
@@ -250,15 +256,52 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // Telegram інколи відхиляє зображення (формат, розмір). Заявку
       // це не спиняє — картка йде в будь-якому разі, але оператор має
       // побачити, що з фото щось не так.
-      if (!photoRes.ok) {
-        notes.push('⚠️ Фото не передалося — передзвоніть і попросіть надіслати');
-      }
+      photosFailed = !photoRes.ok;
+    } catch {
+      // Мережа впала саме на знімках — картка все одно мусить піти,
+      // з попередженням замість фото. Раніше цей випадок віддавав 502,
+      // і заявка, яка вже лежала в базі, не доїзджала до чату взагалі.
+      photosFailed = true;
     }
+  }
 
-    if (oversized > 0) {
-      notes.push(`⚠️ Не вмістилося знімків: ${oversized} — передзвоніть і попросіть надіслати`);
+  // ── 7. Попередження в картці ────────────────────────────
+  //
+  // Усі notes зібрані в одному місці й в одному порядку — склад картки
+  // не залежить від того, як далеко дійшла відправка.
+  //
+  // Ті з них, що стосуються саме цієї заявки (фото), пишуться в базу:
+  // /api/tg перемальовує картку з бази і без цього стер би їх першим же
+  // натиском кнопки. Рядок про попереднє звернення не пишемо — tg.ts
+  // рахує його заново, бо він залежить від інших рядків таблиці.
+  const notes: string[] = [];
+  if (previous) notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(previous)}`);
+  if (lead.id === 0) notes.push('⚠️ Заявку не збережено');
+
+  const stored: string[] = [];
+  if (photosFailed) {
+    stored.push('⚠️ Фото не передалося — передзвоніть і попросіть надіслати');
+  }
+  if (oversized > 0) {
+    stored.push(`⚠️ Не вмістилося знімків: ${oversized} — передзвоніть і попросіть надіслати`);
+  }
+  notes.push(...stored);
+
+  // Окремий запит, бо він потрібен лише на рідкому шляху «з фото щось
+  // не так», а не на кожній заявці
+  if (env.DB && lead.id > 0 && stored.length > 0) {
+    try {
+      await env.DB.prepare('UPDATE leads SET notes = ? WHERE id = ?')
+        .bind(stored.join('\n'), lead.id)
+        .run();
+    } catch {
+      // Попередження лишиться в цій картці, але зникне після
+      // натискання кнопки. Заявку це не спиняє.
     }
+  }
 
+  // ── 8. Картка ───────────────────────────────────────────
+  try {
     const res = await fetch(`${api}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
