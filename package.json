@@ -10,7 +10,8 @@
     "telegram:webhook": "node scripts/telegram-webhook.mjs",
     "build": "node scripts/validate-content.mjs --prod && astro build",
     "build:preview": "node scripts/validate-content.mjs && astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "check:functions": "tsc -p tsconfig.functions.json"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.3.0",
@@ -19,6 +20,8 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
-    "@lhci/cli": "^0.15.1"
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "@lhci/cli": "^0.15.1",
+    "typescript": "^7.0.2"
   }
 }

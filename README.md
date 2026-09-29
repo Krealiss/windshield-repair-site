@@ -21,8 +21,16 @@
 npm install
 npm run dev          # http://localhost:4321
 npm run validate     # перевірка контенту без збірки
+npm run check:functions  # типи у functions/** (середовище Workers)
 npm run build        # продакшн: падає, якщо контент некоректний
 ```
+
+`npm run check:functions` перевіряє типи в Pages Functions і нічого не
+збирає. Конфіг — `tsconfig.functions.json`, окремий від сайту навмисно: у
+`functions/**` діє середовище Cloudflare Workers, де `Response`, `fetch` і
+`FormData` оголошені інакше, ніж у браузері, і спільний конфіг змушував би
+ці оголошення сперечатися. У CI цей крок стоїть **першим** — перевірка
+контенту доти падає на заглушках, і все, що після неї, не запускається.
 
 ---
 
