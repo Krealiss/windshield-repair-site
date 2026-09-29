@@ -57,12 +57,29 @@ export interface LeadRow {
   status: Status;
   prev_status?: Status | null;
   actor_name?: string | null;
+  decline_reason?: string | null;
 }
 
 /* Ключ — рядок, а не Status: стан приходить із бази, і наступна
    міграція, яка додасть стан (наприклад «Причина відмови»), інакше
    дала б картку зі словом undefined у заголовку. Тому в cardText()
    є запасні значення. */
+/**
+ * Готові причини відмови.
+ *
+ * Порядок важливий: у callback_data їде індекс, а не текст, бо 64 байти
+ * на всю строку не вміщають фразу кириличними. Тому рядки можна
+ * переписувати, але не переставляти й не видаляти з середини — картка,
+ * надіслана старшим кодом, підставить причину за старим номером.
+ * Додавати — тільки в кінець.
+ */
+export const REASONS = [
+  'Тріщина завелика — тільки заміна',
+  'Не влаштувала ціна',
+  'Передумав',
+  'Не додзвонились',
+];
+
 const MARK: Record<string, string | undefined> = {
   new: '🆕',
   in_work: '🔧',
@@ -131,6 +148,13 @@ export function cardText(lead: LeadRow, notes: string[] = []): string {
     lines.push('', `Взяв: ${lead.actor_name}`);
   }
 
+  // Причина — лише у відмові: у решті станів колонка порожня, а після
+  // «Повернути» очищається, бо повернення означає, що відмова була
+  // помилкою
+  if (lead.status === 'declined' && lead.decline_reason) {
+    lines.push('', `Причина: ${lead.decline_reason}`);
+  }
+
   for (const note of notes) lines.push('', note);
 
   lines.push('', kyivShort(lead.created_at));
@@ -149,12 +173,30 @@ export function keyboard(lead: LeadRow) {
     callback_data: `${action}:${lead.id}`,
   });
 
-  const row =
-    lead.status === 'new'
-      ? [btn('🔧 В роботу', 'work'), btn('✖️ Відмова', 'decline')]
-      : lead.status === 'in_work'
-        ? [btn('✅ Виконано', 'done'), btn('✖️ Відмова', 'decline')]
-        : [btn('↩️ Повернути', 'undo')];
+  const undo = btn('↩️ Повернути', 'undo');
 
-  return { inline_keyboard: [row] };
+  if (lead.status === 'new') {
+    return { inline_keyboard: [[btn('🔧 В роботу', 'work'), btn('✖️ Відмова', 'decline')]] };
+  }
+
+  if (lead.status === 'in_work') {
+    return { inline_keyboard: [[btn('✅ Виконано', 'done'), btn('✖️ Відмова', 'decline')]] };
+  }
+
+  /* Свіжа відмова питає причину. Питаємо після зміни стану, а не до:
+     заявка вже відмовлена, і якщо оператора відвернули, вона не висить
+     у невизначеності. Причина необовʼязкова — не натиснули, і нехай.
+
+     Щойно причина є, кнопки зникають: переписувати її нема потреби, а
+     «Повернути» все одно поруч і все одно її очистить. */
+  if (lead.status === 'declined' && !lead.decline_reason) {
+    return {
+      inline_keyboard: [
+        ...REASONS.map((text, i) => [btn(text, `r${i}`)]),
+        [btn('✍️ Інша причина', 'rx'), undo],
+      ],
+    };
+  }
+
+  return { inline_keyboard: [[undo]] };
 }

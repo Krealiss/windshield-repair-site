@@ -1,5 +1,6 @@
 /**
- * POST /api/tg — вебхук Telegram: натискання кнопок під заявкою.
+ * POST /api/tg — вебхук Telegram: натискання кнопок під заявкою і
+ * відповідь оператора з вільною причиною відмови.
  *
  * Ендпоінт публічний, тож єдиний захист — секрет, який Telegram
  * підставляє в заголовок кожного запиту. Перевіряємо його до розбору
@@ -12,12 +13,27 @@
  * Telegram. Тому кожна зміна стану тут ідемпотентна: повтор нічого не
  * переписує, а лише відповідає підказкою.
  *
+ * Відколи в allowed_updates зʼявився `message`, сюди долітає **кожне**
+ * повідомлення з чату, а не лише відповіді боту. Тому обробник
+ * повідомлень мовчки виходить на все, що не є відповіддю на наш власний
+ * запит причини: звʼязку «відповідь → заявка» ми не вгадуємо з тексту, а
+ * читаємо з KV, куди її поклали під ключем, що містить номер того самого
+ * запиту.
+ *
  * Секрети (Pages → Settings → Environment variables, тип Secret):
  *   TELEGRAM_WEBHOOK_SECRET
  *   TELEGRAM_BOT_TOKEN
  *   TELEGRAM_CHAT_ID — лише як запасний адресат картки-замінника
  */
-import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
+import {
+  cardText,
+  clean,
+  keyboard,
+  kyivDate,
+  REASONS,
+  type LeadRow,
+  type Status,
+} from '../_lib/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -27,6 +43,12 @@ interface Env {
      навмисно — забута змінна не має валити обробник. */
   TELEGRAM_CHAT_ID?: string;
   DB?: D1Database;
+  /* Той самий простір, що тримає обмежувач заявок у /api/lead. Друге
+     призначення — короткочасна памʼять «це повідомлення питало причину
+     заявки #N», ключі з префіксом `reason:`. Окремий простір означав би
+     ще одну привʼязку в панелі Cloudflare заради двох ключів, які живуть
+     годину. */
+  RATE?: KVNamespace;
 }
 
 /** Куди веде кожна кнопка. «Повернути» рахується окремо: цілі в нього
@@ -52,7 +74,196 @@ const TOAST: Record<Status, string> = {
   declined: 'Відмова',
 };
 
+/** Скільки живе памʼять про запит причини. Година — це «оператор
+    відволікся й повернувся», і водночас достатньо коротко, щоб забутий
+    запит не зловив випадкову відповідь наступного дня. */
+const REASON_TTL = 3600;
+
+/** Вільна причина обрізається: вона йде в картку, а картка ціла мусить
+    уміщатися в лімітах Telegram. Двісті символів — це кілька речень,
+    довше за них причина відмови не буває. */
+const REASON_MAX = 200;
+
+const SELECT_LEAD = `SELECT id, created_at, name, phone, age, car, photos, status, prev_status,
+              actor_name, decline_reason, chat_id, message_id, notes
+         FROM leads WHERE id = ?`;
+
+/** Записати причину можна лише у відмову — звідси умова в обох UPDATE */
+const SET_REASON = `UPDATE leads
+      SET decline_reason = ?, updated_at = ?
+    WHERE id = ? AND status = 'declined'`;
+
+/** Рядок заявки плюс те, що потрібне лише для малювання картки */
+type FullRow = LeadRow & {
+  chat_id: string | null;
+  message_id: number | null;
+  notes: string | null;
+};
+
 const okEmpty = () => new Response('ok', { status: 200 });
+
+const call = (api: string, method: string, body: unknown) =>
+  fetch(`${api}/${method}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+/**
+ * Малює картку заявки з того, що зараз у базі: редагує наявне
+ * повідомлення, а якщо не вийшло — надсилає нове й запамʼятовує саме
+ * його.
+ *
+ * Спільний шлях для трьох випадків, які інакше розійшлися б: зміна
+ * стану кнопкою, готова причина кнопкою, вільна причина відповіддю.
+ */
+async function draw(env: Env, db: D1Database, api: string, row: FullRow): Promise<void> {
+  /* Попередження в картці. Перше рахуємо заново — воно залежить від
+     інших рядків таблиці; решту читаємо з колонки notes, куди їх
+     поклав /api/lead. Без неї перший же натиск стирав із картки
+     підказку «фото не передалося».
+
+     `created_at < ?`, а не `id <> ?`: «попереднє» звернення — те, що
+     раніше за цю заявку. Умова «будь-яке інше» показувала на картці
+     #5 дату заявки #9, тобто дату, якої на момент #5 ще не було. */
+  const notes: string[] = [];
+  const before = await db
+    .prepare(
+      'SELECT created_at FROM leads WHERE phone = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1'
+    )
+    .bind(row.phone, row.created_at)
+    .first<{ created_at: string }>();
+  if (before) notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
+  for (const note of (row.notes ?? '').split('\n')) {
+    if (note.trim()) notes.push(note);
+  }
+
+  const text = cardText(row, notes);
+  const markup = keyboard(row);
+
+  /* Один шлях на дві біди: редагування не вдалося або редагувати
+     нічого (зворотний запис message_id колись не пройшов). В обох
+     випадках надсилаємо картку заново і запамʼятовуємо саме її — без
+     цього наступний натиск редагував би те саме старе повідомлення й
+     плодив ще одну картку, а стан у базі мінявся б без жодного сліду
+     в чаті. */
+  let drawn = false;
+
+  if (row.chat_id && row.message_id) {
+    const edited = await call(api, 'editMessageText', {
+      chat_id: row.chat_id,
+      message_id: row.message_id,
+      text,
+      reply_markup: markup,
+    });
+
+    drawn = edited.ok;
+
+    /* «message is not modified» — не збій: картка вже така, як треба.
+       Раніше ця відмова гнала код у sendMessage, і в чаті зʼявлявся
+       другий екземпляр тієї самої заявки. */
+    if (!drawn) {
+      const why = (await edited.json().catch(() => ({}))) as { description?: string };
+      if (/message is not modified/i.test(why.description ?? '')) drawn = true;
+    }
+  }
+
+  if (drawn) return;
+
+  const chatId = row.chat_id || env.TELEGRAM_CHAT_ID;
+  if (!chatId) return;
+
+  const sent = await call(api, 'sendMessage', { chat_id: chatId, text, reply_markup: markup });
+  if (!sent.ok) return;
+
+  try {
+    const data = (await sent.json()) as {
+      result?: { message_id?: number; chat?: { id?: number } };
+    };
+    const messageId = data.result?.message_id;
+    const newChatId = data.result?.chat?.id;
+    if (messageId && newChatId) {
+      await db
+        .prepare('UPDATE leads SET chat_id = ?, message_id = ? WHERE id = ?')
+        .bind(String(newChatId), messageId, row.id)
+        .run();
+    }
+  } catch {
+    // Картка в чаті вже є; не запамʼяталось — наступний натиск
+    // надішле ще одну. Краще за втрачений стан.
+  }
+}
+
+/**
+ * Відповідь оператора з вільною причиною відмови.
+ *
+ * Сюди долітає будь-яке повідомлення з чату, тож функція мовчки виходить
+ * на все, що не є відповіддю на наш власний запит. «Наш» означає: у KV є
+ * ключ із номером повідомлення, на яке відповідають. Вгадувати за
+ * текстом не можна — оператор пише в цей чат і сам собі.
+ */
+async function reasonFromReply(
+  env: Env,
+  api: string,
+  msg: {
+    message_id?: number;
+    text?: string;
+    chat?: { id?: number };
+    reply_to_message?: { message_id?: number };
+  }
+): Promise<void> {
+  const chatId = msg.chat?.id;
+  const promptId = msg.reply_to_message?.message_id;
+  const reason = clean(msg.text, REASON_MAX);
+  if (!chatId || !promptId || !reason || !env.RATE || !env.DB) return;
+
+  const key = `reason:${chatId}:${promptId}`;
+  const rawId = await env.RATE.get(key);
+  if (!rawId) return; // відповідь не на наш запит — не наша справа
+
+  const id = Number(rawId);
+  const db = env.DB;
+  const store = env.RATE;
+  const drop = (messageId: number) =>
+    call(api, 'deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => {});
+
+  const row = await db.prepare(SELECT_LEAD).bind(id).first<FullRow>();
+  if (!row) {
+    await store.delete(key);
+    return;
+  }
+
+  /* Заявку встигли повернути з відмови, поки оператор писав. Причину в
+     такому разі записувати нікуди — але й проковтнути текст молча не
+     можна, інакше людина вважатиме, що причина збереглася. Запит
+     прибираємо, відповідь лишаємо на місці: написане не має зникати
+     разом із повідомленням про те, що воно не врахувалось. */
+  if (row.status !== 'declined') {
+    await store.delete(key);
+    await drop(promptId);
+    await call(api, 'sendMessage', {
+      chat_id: chatId,
+      text: `Заявка #${id} вже не у відмові — причину не записано.`,
+    }).catch(() => {});
+    return;
+  }
+
+  const written = await db
+    .prepare(SET_REASON)
+    .bind(reason, new Date().toISOString(), id)
+    .run();
+
+  if (Number(written.meta?.changes ?? 0) > 0) {
+    await draw(env, db, api, { ...row, decline_reason: reason });
+  }
+
+  /* Прибираємо після запису, не до: якщо видалення не вдасться, причина
+     вже в картці, і найгірше — два зайвих повідомлення в чаті. У
+     зворотному порядку ми б видалили текст, який нікуди не дійшов. */
+  await store.delete(key);
+  await drop(promptId);
+  if (msg.message_id) await drop(msg.message_id);
+}
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (request.headers.get('x-telegram-bot-api-secret-token') !== env.TELEGRAM_WEBHOOK_SECRET) {
@@ -65,10 +276,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       data?: string;
       from?: { id?: number; first_name?: string; username?: string };
     };
+    message?: {
+      message_id?: number;
+      text?: string;
+      chat?: { id?: number };
+      reply_to_message?: { message_id?: number };
+    };
   };
   try {
     update = await request.json();
   } catch {
+    return okEmpty();
+  }
+
+  const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
+
+  if (update.message) {
+    // Вільна причина відмови. Усе інше, що людина пише в чат, лишається
+    // без відповіді — і це головна властивість цієї гілки.
+    try {
+      await reasonFromReply(env, api, update.message);
+    } catch {
+      // Мовчки: помилка тут не мусить ані валити вебхук, ані сипати в
+      // чат повідомленнями на кожен сторонній рядок
+    }
     return okEmpty();
   }
 
@@ -86,13 +317,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
      дозволених. Зараз такого списку в проєкті немає, тому й перевірки
      немає: вона б або пропускала всіх, або блокувала власника. */
 
-  const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
   const close = (text: string) =>
-    fetch(`${api}/answerCallbackQuery`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ callback_query_id: cq.id, text }),
-    }).catch(() => {});
+    call(api, 'answerCallbackQuery', { callback_query_id: cq.id, text }).catch(() => {});
 
   const [action, rawId] = cq.data.split(':');
   const id = Number(rawId);
@@ -103,28 +329,91 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return okEmpty();
   }
 
-  let changed = false; // чи встиг пройти UPDATE — від цього залежить текст помилки
+  const db = env.DB;
+  let changed = false; // чи встиг пройти запис — від цього залежить текст помилки
 
   try {
-    const row = await env.DB.prepare(
-      `SELECT id, created_at, name, phone, age, car, photos, status, prev_status,
-              actor_name, chat_id, message_id, notes
-         FROM leads WHERE id = ?`
-    )
-      .bind(id)
-      .first<
-        LeadRow & { chat_id: string | null; message_id: number | null; notes: string | null }
-      >();
+    const row = await db.prepare(SELECT_LEAD).bind(id).first<FullRow>();
 
     if (!row) {
       await close('Заявку не знайдено');
       return okEmpty();
     }
 
+    /* Готова причина відмови. Стану не міняє, тому ідемпотентність тут
+       інша: повторний натиск запише те саме значення, картка не
+       зміниться, і Telegram відповість «message is not modified», яке
+       draw() рахує успіхом. */
+    const preset = /^r([0-9]+)$/.exec(action ?? '');
+    if (preset) {
+      const reason = REASONS[Number(preset[1])];
+      if (!reason) {
+        await close('Невідома причина');
+        return okEmpty();
+      }
+      if (row.status !== 'declined') {
+        await close('Причина буває лише у відмови');
+        return okEmpty();
+      }
+
+      const written = await db
+        .prepare(SET_REASON)
+        .bind(reason, new Date().toISOString(), id)
+        .run();
+      changed = Number(written.meta?.changes ?? 0) > 0;
+
+      if (changed) await draw(env, db, api, { ...row, decline_reason: reason });
+      await close('Причину записано');
+      return okEmpty();
+    }
+
+    /* Вільна причина: просимо написати її відповіддю. force_reply
+       відкриває оператору поле відповіді, а номер того повідомлення ми
+       кладемо в KV — інакше наступний текст у чаті нічим не звʼязати з
+       заявкою. */
+    if (action === 'rx') {
+      if (!env.RATE) {
+        await close('Вільна причина недоступна');
+        return okEmpty();
+      }
+      if (row.status !== 'declined') {
+        await close('Причина буває лише у відмови');
+        return okEmpty();
+      }
+
+      const chatId = row.chat_id || env.TELEGRAM_CHAT_ID;
+      if (!chatId) {
+        await close('Немає куди надіслати запит');
+        return okEmpty();
+      }
+
+      const asked = await call(api, 'sendMessage', {
+        chat_id: chatId,
+        text: `Заявка #${id} — напишіть причину відмови у відповідь на це повідомлення.`,
+        reply_markup: { force_reply: true, input_field_placeholder: 'Причина відмови' },
+      });
+
+      if (asked.ok) {
+        const data = (await asked.json().catch(() => ({}))) as {
+          result?: { message_id?: number; chat?: { id?: number } };
+        };
+        const promptId = data.result?.message_id;
+        const promptChat = data.result?.chat?.id;
+        if (promptId && promptChat) {
+          await env.RATE.put(`reason:${promptChat}:${promptId}`, String(id), {
+            expirationTtl: REASON_TTL,
+          });
+        }
+      }
+
+      await close('Напишіть причину у відповідь');
+      return okEmpty();
+    }
+
     // «Повернути» веде в стан, з якого заявка пішла у фінальний.
     // Він збережений окремим полем саме тому, що з «Відмови» шлях
     // може вести і в «Нову», і в «В роботі».
-    const target = action === 'undo' ? (row.prev_status ?? 'new') : NEXT[action];
+    const target = action === 'undo' ? (row.prev_status ?? 'new') : NEXT[action ?? ''];
     if (!target) {
       await close('Невідома дія');
       return okEmpty();
@@ -168,16 +457,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
        actor_id пишеться NULL, а не порожнім рядком: колонка nullable, і
        CRM шукатиме майстрів через IS NULL, яке порожнього рядка не
-       побачить. */
-    const written = await env.DB.prepare(
-      `UPDATE leads
-          SET prev_status = status,
-              status = ?,
-              actor_id = ?,
-              actor_name = ?,
-              updated_at = ?
-        WHERE id = ? AND status <> ?`
-    )
+       побачить.
+
+       decline_reason скидається на кожній зміні стану — і це правильно
+       в усіх трьох напрямках: у свіжій відмові причини ще немає, при
+       поверненні вона стає неправдою, а при повторній відмові після
+       повернення лишилася б стара. */
+    const written = await db
+      .prepare(
+        `UPDATE leads
+            SET prev_status = status,
+                status = ?,
+                actor_id = ?,
+                actor_name = ?,
+                decline_reason = NULL,
+                updated_at = ?
+          WHERE id = ? AND status <> ?`
+      )
       .bind(
         target,
         cq.from?.id ? String(cq.from.id) : null,
@@ -196,93 +492,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     changed = true;
 
-    const lead: LeadRow = { ...row, status: target, actor_name: who };
-
-    /* Попередження в картці. Перше рахуємо заново — воно залежить від
-       інших рядків таблиці; решту читаємо з колонки notes, куди їх
-       поклав /api/lead. Без неї перший же натиск стирав із картки
-       підказку «фото не передалося».
-
-       `created_at < ?`, а не `id <> ?`: «попереднє» звернення — те, що
-       раніше за цю заявку. Умова «будь-яке інше» показувала на картці
-       #5 дату заявки #9, тобто дату, якої на момент #5 ще не було. */
-    const notes: string[] = [];
-    const before = await env.DB.prepare(
-      'SELECT created_at FROM leads WHERE phone = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1'
-    )
-      .bind(row.phone, row.created_at)
-      .first<{ created_at: string }>();
-    if (before) notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
-    for (const note of (row.notes ?? '').split('\n')) {
-      if (note.trim()) notes.push(note);
-    }
-
-    const text = cardText(lead, notes);
-    const markup = keyboard(lead);
-
-    /* Один шлях на дві біди: редагування не вдалося або редагувати
-       нічого (зворотний запис message_id колись не пройшов). В обох
-       випадках надсилаємо картку заново і запамʼятовуємо саме її — без
-       цього наступний натиск редагував би те саме старе повідомлення й
-       плодив ще одну картку, а стан у базі мінявся б без жодного сліду
-       в чаті. */
-    let drawn = false;
-
-    if (row.chat_id && row.message_id) {
-      const edited = await fetch(`${api}/editMessageText`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: row.chat_id,
-          message_id: row.message_id,
-          text,
-          reply_markup: markup,
-        }),
-      });
-
-      drawn = edited.ok;
-
-      /* «message is not modified» — не збій: картка вже така, як треба.
-         Раніше ця відмова гнала код у sendMessage, і в чаті зʼявлявся
-         другий екземпляр тієї самої заявки. */
-      if (!drawn) {
-        const why = (await edited.json().catch(() => ({}))) as { description?: string };
-        if (/message is not modified/i.test(why.description ?? '')) drawn = true;
-      }
-    }
-
-    if (!drawn) {
-      const chatId = row.chat_id || env.TELEGRAM_CHAT_ID;
-      if (chatId) {
-        const sent = await fetch(`${api}/sendMessage`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text, reply_markup: markup }),
-        });
-
-        if (sent.ok) {
-          try {
-            const data = (await sent.json()) as {
-              result?: { message_id?: number; chat?: { id?: number } };
-            };
-            const messageId = data.result?.message_id;
-            const newChatId = data.result?.chat?.id;
-            if (messageId && newChatId) {
-              await env.DB.prepare('UPDATE leads SET chat_id = ?, message_id = ? WHERE id = ?')
-                .bind(String(newChatId), messageId, id)
-                .run();
-            }
-          } catch {
-            // Картка в чаті вже є; не запамʼяталось — наступний натиск
-            // надішле ще одну. Краще за втрачений стан.
-          }
-        }
-      }
-    }
+    await draw(env, db, api, {
+      ...row,
+      status: target,
+      actor_name: who,
+      decline_reason: null,
+    });
 
     await close(TOAST[target]);
   } catch {
-    /* Текст не має брехати: якщо UPDATE уже пройшов, стан змінено, і
+    /* Текст не має брехати: якщо запис уже пройшов, стан змінено, і
        «не вдалося» підштовхувало б натиснути ще раз — тобто рівно до
        повтору, від якого ми щойно захищалися. */
     await close(changed ? 'Стан змінено, картку не перемалювало' : 'Не вдалося змінити стан');
