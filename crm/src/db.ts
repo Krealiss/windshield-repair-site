@@ -14,7 +14,11 @@ export const LEAD_COLUMNS = `id, created_at, name, phone, age, car, photos, stat
   prev_status, actor_name, decline_reason, chat_id, message_id, notes,
   appointment_at, closed_at, amount, work_note`;
 
-export type Filter = { q?: string; status?: string; from?: string; to?: string };
+/** Скільки заявок показує список і скільки рядків переглядає пошук за імʼям */
+const SHOWN = 200;
+const SCAN = 1000;
+
+export type Filter ={ q?: string; status?: string; from?: string; to?: string };
 
 /**
  * Список заявок. Типово — активні: те, що вимагає дії сьогодні.
@@ -33,14 +37,6 @@ export async function listLeads(db: D1Database, f: Filter): Promise<LeadFull[]> 
     where.push("status IN ('new', 'in_work')");
   }
 
-  if (f.q) {
-    /* `%` і `_` у пошуковому рядку — звичайні символи, а не шаблон:
-       екрануємо їх, інакше запит «%» збігся б з усім */
-    where.push("(phone LIKE ? ESCAPE '!' OR name LIKE ? ESCAPE '!')");
-    const like = `%${f.q.replace(/[!%_]/g, '!$&')}%`;
-    bind.push(like, like);
-  }
-
   if (f.from) {
     where.push('created_at >= ?');
     bind.push(f.from);
@@ -50,13 +46,41 @@ export async function listLeads(db: D1Database, f: Filter): Promise<LeadFull[]> 
     bind.push(f.to);
   }
 
-  const sql =
-    `SELECT ${LEAD_COLUMNS} FROM leads` +
-    (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
-    ' ORDER BY created_at DESC LIMIT 200';
+  const select = async (extra: string[], extraBind: unknown[], limit: number) => {
+    const all = [...where, ...extra];
+    const sql =
+      `SELECT ${LEAD_COLUMNS} FROM leads` +
+      (all.length ? ` WHERE ${all.join(' AND ')}` : '') +
+      ` ORDER BY created_at DESC LIMIT ${limit}`;
+    const res = await db.prepare(sql).bind(...bind, ...extraBind).all<LeadFull>();
+    return res.results ?? [];
+  };
 
-  const res = await db.prepare(sql).bind(...bind).all<LeadFull>();
-  return res.results ?? [];
+  const q = (f.q ?? '').trim();
+  if (!q) return select([], [], SHOWN);
+
+  /* SQLite складає регістр (LIKE, lower) лише для ASCII: «петро» не
+     знайде «Петро». Тому номер (ASCII) шукаємо в SQL, а імена звіряємо
+     тут, через локаль «uk». У `LIKE` `%` і `_` — шаблон, а не символи,
+     тож екрануємо їх, інакше запит «%» збігся б з усім. */
+  const like = `%${q.replace(/[!%_]/g, '!$&')}%`;
+  const needle = q.toLocaleLowerCase('uk');
+
+  const [byPhone, candidates] = await Promise.all([
+    select(["phone LIKE ? ESCAPE '!'"], [like], SHOWN),
+    select([], [], SCAN),
+  ]);
+
+  const found = new Map<number, LeadFull>();
+  for (const r of byPhone) found.set(r.id, r);
+  for (const r of candidates) {
+    if (r.name.toLocaleLowerCase('uk').includes(needle)) found.set(r.id, r);
+  }
+
+  /* Ліміт застосовуємо після фільтрації імен, щоб він не з'їв збіги */
+  return [...found.values()]
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : b.id - a.id))
+    .slice(0, SHOWN);
 }
 
 export async function getLead(db: D1Database, id: number): Promise<LeadFull | null> {
