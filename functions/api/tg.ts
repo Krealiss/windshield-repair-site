@@ -387,10 +387,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return okEmpty();
       }
 
+      /* force_reply у групі поводиться інакше, ніж у особистих: без
+         `selective` поле відповіді розкривається **всім** учасникам, а
+         причину пише один. Telegram націлює його на тих, кого згадано
+         в тексті, тож підставляємо @username того, хто натиснув.
+
+         Якщо username немає (його ставлять не всі), `selective` не
+         вмикаємо: краще зайве поле відповіді в кількох людей, ніж
+         запит, якого не бачить ніхто. Імʼя в тексті лишається — воно
+         підказує, кого чекають. */
+      const username = clean(cq.from?.username, 64);
+      const naming = username ? `@${username}` : clean(cq.from?.first_name, 64) || 'Оператор';
+
       const asked = await call(api, 'sendMessage', {
         chat_id: chatId,
-        text: `Заявка #${id} — напишіть причину відмови у відповідь на це повідомлення.`,
-        reply_markup: { force_reply: true, input_field_placeholder: 'Причина відмови' },
+        text: `${naming}, напишіть причину відмови для заявки #${id} у відповідь на це повідомлення.`,
+        reply_markup: {
+          force_reply: true,
+          ...(username ? { selective: true } : {}),
+          input_field_placeholder: 'Причина відмови',
+        },
       });
 
       if (asked.ok) {
