@@ -1072,11 +1072,15 @@ Expected: код 0.
 Скрипт рахує справжній підпис із токена (читає `.dev.vars` сам, нічого
 не друкує) і підроблений — і порівнює відповіді.
 
-Створити тимчасовий `/tmp/auth-probe.mjs`:
+Створити `auth-probe.mjs` **у корені репозиторію** (і видалити після
+перевірки). Саме в корені, а не в `/tmp`: `readDevVars` читає `.dev.vars`
+відносно поточної теки, а ESM-імпорт за абсолютним шляхом на Windows
+падає з `ERR_UNSUPPORTED_ESM_URL_SCHEME` — відносний шлях обходить
+обидві пастки.
 
 ```js
 import { createHash, createHmac } from 'node:crypto';
-import { readDevVars } from '/c/site/scripts/_dev-vars.mjs';
+import { readDevVars } from './scripts/_dev-vars.mjs';
 
 const env = readDevVars(() => ({}));
 const token = env.TELEGRAM_BOT_TOKEN;
@@ -1101,15 +1105,18 @@ for (const [label, hash] of [['справжній', good], ['підроблен�
 }
 ```
 
-Run: `node /tmp/auth-probe.mjs`
+Run: `node auth-probe.mjs`
 Expected: `справжній: HTTP 302` (переадресація на `/`), `підроблений: HTTP 403`.
+
+Пробу не комітити. Після Task 6, де вона ще знадобиться для куки, видалити:
+`rm auth-probe.mjs`
 
 - [ ] **Step 7: Перевірити, що знятий доступ діє негайно**
 
 ```bash
 npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml \
   --command "UPDATE users SET active = 0"
-node /tmp/auth-probe.mjs
+node auth-probe.mjs
 npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.local.toml \
   --command "UPDATE users SET active = 1"
 ```
@@ -1384,7 +1391,7 @@ INSERT INTO leads (created_at, name, phone, car, photos, status) VALUES
 
 Сесію взяти з браузера або зібрати кукою; простіше — тимчасово перевірити
 через `curl` із кукою, яку видає `/auth` у пробі з Task 5. Щоб не
-вигадувати, додати до `/tmp/auth-probe.mjs` збереження куки:
+вигадувати, додати до `auth-probe.mjs` збереження куки:
 
 ```js
 const r = await fetch(url(good), { redirect: 'manual' });
@@ -1627,7 +1634,7 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
 import { applyChange, getLead, historyByPhone } from './db';
 import { leadPage } from './views/lead';
 import { syncCard } from './sync';
-import { clean } from '../../shared/card';
+import { clean, type Status } from '../../shared/card';
 import { fromLocalInput, toKop } from './format';
 
 app.get('/lead/:id', async (c) => {
@@ -1704,7 +1711,7 @@ app.post('/lead/:id/undo', async (c) => {
 
   const viewer = c.get('viewer');
   await applyChange(c.env.DB, id, {
-    status: (lead.prev_status ?? 'new') as 'new',
+    status: (lead.prev_status ?? 'new') as Status,
     actor_id: viewer.tg_id,
     actor_name: viewer.name,
   });
