@@ -60,6 +60,36 @@ export function fromLocalInput(value: string): string | null {
   return new Date(instant).toISOString();
 }
 
+/**
+ * Межі київської доби, у якій лежить `now`: [from, to) в ISO UTC.
+ *
+ * Не рахуємо «зсув зараз» і не додаємо 24 години: у добу переходу на
+ * літній чи зимовий час вона триває 23 або 25 годин, а зсув опівночі й
+ * зсув зараз можуть різнитися. Тому беремо календарну дату за Києвом і
+ * перетворюємо київську північ обох країв через `fromLocalInput`, яка
+ * враховує перехід для самого моменту. Північ не потрапляє на перехід
+ * (той о 03:00–04:00), тож неоднозначності нема.
+ */
+export function kyivDayBounds(now: Date = new Date()): { from: string; to: string } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const v = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+
+  const pad = (d: Date) => d.toISOString().slice(0, 10);
+  const today = new Date(Date.UTC(v('year'), v('month') - 1, v('day')));
+  const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
+
+  // Дати тут календарні (UTC лише як контейнер), тож 24 години — рівно доба
+  const from = fromLocalInput(`${pad(today)}T00:00`);
+  const to = fromLocalInput(`${pad(tomorrow)}T00:00`);
+  if (!from || !to) throw new Error('Не вдалося порахувати межі доби');
+  return { from, to };
+}
+
 const STATUS_LABEL: Record<string, string> = {
   new: '🆕 Нова',
   in_work: '🔧 В роботі',

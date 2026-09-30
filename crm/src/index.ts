@@ -12,14 +12,16 @@ import type { Env } from './env';
 import { readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
-import { applyChange, getLead, historyByPhone, listLeads } from './db';
+import { applyChange, getLead, historyByPhone, listDay, listLeads } from './db';
 import { leadsPage } from './views/leads';
 import { leadPage } from './views/lead';
+import { clientPage } from './views/client';
+import { todayPage } from './views/today';
 import { layout } from './views/layout';
 import { html } from 'hono/html';
 import { syncCard } from './sync';
 import { clean, type Status } from '../../shared/card';
-import { fromLocalInput, toKop } from './format';
+import { fromLocalInput, kyivDayBounds, toKop } from './format';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -280,6 +282,23 @@ app.post('/lead/:id/undo', async (c) => {
 
   await syncCard(c.env, id);
   return c.redirect(`/lead/${id}`);
+});
+
+app.get('/client/:phone', async (c) => {
+  /* Hono уже розкодував параметр адреси. Повторний decodeURIComponent
+     зіпсував би номер із «%» і падав би на некоректній послідовності. */
+  const phone = c.req.param('phone');
+  const rows = await historyByPhone(c.env.DB, phone);
+  if (rows.length === 0) return c.notFound();
+  return c.html(clientPage(phone, rows, c.get('viewer')));
+});
+
+app.get('/today', async (c) => {
+  /* Доба — київська, а в базі час у UTC. Запис на 00:30 за Києвом — це
+     ще вчорашній день за UTC, і без перерахунку він зник би зі списку. */
+  const { from, to } = kyivDayBounds();
+  const rows = await listDay(c.env.DB, from, to);
+  return c.html(todayPage(rows, c.get('viewer')));
 });
 
 export default app;
