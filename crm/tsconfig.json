@@ -9,9 +9,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noEmit": true,
-    "skipLibCheck": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "../shared/**/*.ts"]
 }
