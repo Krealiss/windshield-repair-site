@@ -14,6 +14,7 @@
  *     чи достатня коротка сторона
  *   — пороги показу блоків (галерея від 4 пар, відгуки від 3)
  *   — шляхи, згадані в README: чи існують вони на диску (лише WARN)
+ *   — токен Telegram у відстежуваних файлах: репозиторій публічний
  *
  * Решту — типи, обовʼязковість полів, межі значень — описують схеми
  * в src/content.config.ts і src/lib/site.ts.
@@ -241,6 +242,70 @@ if (existsSync(README)) {
   }
 }
 
+// ── 5. ТОКЕН У ВІДСТЕЖУВАНИХ ФАЙЛАХ ───────────────────────
+/**
+ * Репозиторій публічний, а токен бота дає повний доступ: писати від
+ * імені бота й читати заявки клієнтів. Один раз файл із токеном уже
+ * зʼявився в робочій теці під назвою, якої .gitignore не ловив.
+ *
+ * Шукаємо форму токена Telegram: 8–10 цифр, двокрапка, 35 символів.
+ *
+ * Єдина перевірка, яка спиняє збірку **в будь-якому режимі**. Решта
+ * помилок у прев'ю лише друкуються: локально працювати з неповним
+ * контентом нормально. Тут навпаки — що довше файл лежить у теці, то
+ * більший шанс, що його захопить `git add -A`, а після push виправляти
+ * вже нічого: токен доведеться відкликати в @BotFather.
+ *
+ * Значення ніде не друкується, лише назва файлу.
+ */
+let tokenFound = false;
+// Жодного зворотного слеша в шаблоні навмисно: [0-9] замість екранованої
+// цифри, без меж слова. Екранування в цьому проєкті вже двічі не
+// переживало генерацію файлу — саме тут у шаблон потрапив справжній
+// керуючий байт. Мовчки зламаний шаблон гірший за трохи ширший:
+// зайве спрацювання видно одразу, пропущений токен — ніколи.
+const TOKEN_SHAPE = /[0-9]{8,10}:[A-Za-z0-9_-]{35}/;
+const SKIP_DIRS = new Set([
+  'node_modules', '.git', 'dist', '.wrangler', '.astro', '.superpowers', '.vscode',
+]);
+const TEXT_EXT = new Set([
+  '.md', '.mjs', '.js', '.ts', '.astro', '.yml', '.yaml', '.json',
+  '.txt', '.html', '.css', '.sql', '.toml', '.example', '',
+]);
+
+async function scanForToken(dir) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (SKIP_DIRS.has(e.name)) continue;
+      await scanForToken(full);
+      continue;
+    }
+    if (!TEXT_EXT.has(extname(e.name))) continue;
+    // Файли зі змінними оточення в git не потрапляють — .gitignore їх
+    // ловить, і саме там токен і має лежати
+    if (/.vars(.|$)/.test(e.name) && e.name !== '.dev.vars.example') continue;
+    let text;
+    try {
+      text = await readFile(full, 'utf8');
+    } catch {
+      continue;
+    }
+    if (TOKEN_SHAPE.test(text)) {
+      err(full, 'схоже на токен Telegram — приберіть його і відкличте через @BotFather');
+      tokenFound = true;
+    }
+  }
+}
+
+await scanForToken('.');
+
 // ── звіт ──────────────────────────────────────────────────
 const line = '─'.repeat(58);
 console.log(`\n${line}\nПеревірка контенту — режим: ${PROD ? 'ПРОДАКШН' : "прев'ю"}\n${line}`);
@@ -261,6 +326,13 @@ console.log(
   `\nСтатистика: пар у галереї ${published.length}/${gallery.length}, ` +
     `відгуків ${reviews.length}, перевірено шляхів із README ${readmePaths}\n`
 );
+
+// Токен спиняє і прев'ю: «продовжимо, потім приберу» — це і є той шлях,
+// на якому він потрапляє в коміт
+if (tokenFound) {
+  console.error('Токен у файлі проєкту. Збірку зупинено в будь-якому режимі.\n');
+  process.exit(1);
+}
 
 if (errors.length && PROD) {
   console.error('Продакшн-збірка зупинена. Виправте помилки вище.\n');
