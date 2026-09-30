@@ -242,8 +242,9 @@ Pages не розгортає нічого. Так і задумано — са�
 
 ```
 PUBLIC_GTM_ID             — Google Tag Manager (звичайна змінна)
+OWNER_TG_ID               — особистий Telegram-номер власника
 TELEGRAM_BOT_TOKEN        — Secret
-TELEGRAM_CHAT_ID          — Secret
+TELEGRAM_CHAT_ID          — Secret (група, номер відʼємний)
 TELEGRAM_WEBHOOK_SECRET   — Secret
 ```
 
@@ -357,8 +358,9 @@ npm run telegram:test
 
 Ті самі три змінні (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
 `TELEGRAM_WEBHOOK_SECRET`) задаються в Cloudflare Pages → Settings →
-Environment variables, **усі три типу Secret**. `.dev.vars` потрібен
-тільки для локального запуску.
+Environment variables, **усі три типу Secret**. Поряд із ними —
+`OWNER_TG_ID`, який секретом не є. `.dev.vars` потрібен тільки для
+локального запуску.
 
 ---
 
