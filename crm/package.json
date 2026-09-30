@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev -c wrangler.local.toml --persist-to ../.wrangler/state --port 8789",
+    "dev": "wrangler dev -c wrangler.local.toml --persist-to ../.wrangler/state --port 8789 --env-file ../.dev.vars",
     "deploy": "wrangler deploy",
     "check": "tsc -p tsconfig.json"
   },
