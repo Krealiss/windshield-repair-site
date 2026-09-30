@@ -1,0 +1,13 @@
+# Конфіг для розгортання CRM. Локальний запуск бере wrangler.local.toml
+# (поза git) — див. README.
+name = "avtoskloua-crm"
+main = "src/index.ts"
+compatibility_date = "2026-09-26"
+
+# База спільна з сайтом. database_id підставляється після
+# `npx wrangler d1 create leads` — до того деплой навмисно впаде,
+# бо розгорнути CRM у порожнечу гірше, ніж не розгорнути.
+[[d1_databases]]
+binding = "DB"
+database_name = "leads"
+database_id = "ПІДСТАВТЕ-ID-БАЗИ"

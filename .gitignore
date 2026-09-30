@@ -27,3 +27,8 @@ wrangler.local.toml
 # Робоча тека виконання планів: леджер, брифи, пакети рев'ю.
 # Чернетки процесу, а не проєкту — історія git і є записом.
 .superpowers/
+
+# CRM: залежності, локальний конфіг і сховище воркера
+crm/node_modules
+crm/wrangler.local.toml
+crm/.wrangler

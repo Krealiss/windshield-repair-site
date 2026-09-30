@@ -1,0 +1,18 @@
+{
+  "name": "avtoskloua-crm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev -c wrangler.local.toml --persist-to ../.wrangler/state --port 8789",
+    "deploy": "wrangler deploy",
+    "check": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

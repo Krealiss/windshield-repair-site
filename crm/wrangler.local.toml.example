@@ -1,0 +1,14 @@
+# Скопіюйте у crm/wrangler.local.toml — цей файл у git не потрапляє.
+#
+# database_id навмисно "DB": саме такий id підставляє
+# `wrangler pages dev dist --d1 DB`, яким запускається сайт. Локальне
+# сховище D1 підписане хешем цього id, тож без збігу CRM і сайт бачили б
+# дві різні порожні бази.
+name = "avtoskloua-crm"
+main = "src/index.ts"
+compatibility_date = "2026-09-26"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leads"
+database_id = "DB"

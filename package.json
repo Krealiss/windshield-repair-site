@@ -12,7 +12,10 @@
     "build:preview": "node scripts/validate-content.mjs && astro build",
     "preview": "astro preview",
     "check:functions": "tsc -p tsconfig.functions.json",
-    "crm:seed-owner": "node scripts/crm-seed-owner.mjs"
+    "crm:seed-owner": "node scripts/crm-seed-owner.mjs",
+    "crm:dev": "npm --prefix crm run dev",
+    "crm:check": "npm --prefix crm run check",
+    "crm:deploy": "npm --prefix crm run deploy"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.3.0",
