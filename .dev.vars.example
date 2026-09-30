@@ -38,3 +38,8 @@ OWNER_TG_ID=
 # випадковий рядок, наприклад:
 #     node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
 TELEGRAM_WEBHOOK_SECRET=
+
+# Ключ, яким підписується кука сесії CRM. Будь-який довгий випадковий
+# рядок; змінити його = вигнати всіх із сесій.
+#     node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
+SESSION_SECRET=

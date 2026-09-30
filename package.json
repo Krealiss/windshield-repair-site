@@ -11,7 +11,8 @@
     "build": "node scripts/validate-content.mjs --prod && astro build",
     "build:preview": "node scripts/validate-content.mjs && astro build",
     "preview": "astro preview",
-    "check:functions": "tsc -p tsconfig.functions.json"
+    "check:functions": "tsc -p tsconfig.functions.json",
+    "crm:seed-owner": "node scripts/crm-seed-owner.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.3.0",
