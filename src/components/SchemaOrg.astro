@@ -70,14 +70,22 @@ if (contacts.hours.length) {
     }));
 }
 
-// Агрегований рейтинг тільки якщо відгуків достатньо.
+// Агрегований рейтинг тільки якщо справжніх відгуків достатньо.
 // Google знімає розмітку за фейкові або поодинокі оцінки.
-if (reviews.length >= 3) {
-  const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+//
+// Демонстраційні відгуки (demo: true) сюди не потрапляють навіть для
+// підрахунку: у блоці на сторінці вони стоять, поки немає справжніх, а
+// в розмітці вигадана оцінка — це заявка до Google від імені домену.
+// Ціна такої заявки — ручна санкція і втрата розширених сніпетів, тож
+// збірка в продакшні на demo-відгуках падає (validate-content.mjs), а
+// ця умова — другий рубіж, якщо предохранитель колись обійдуть.
+const realReviews = reviews.filter((r) => !r.demo);
+if (realReviews.length >= 3) {
+  const avg = realReviews.reduce((s, r) => s + r.rating, 0) / realReviews.length;
   business.aggregateRating = {
     '@type': 'AggregateRating',
     ratingValue: avg.toFixed(1),
-    reviewCount: reviews.length,
+    reviewCount: realReviews.length,
     bestRating: 5,
   };
 }
