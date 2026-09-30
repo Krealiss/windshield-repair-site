@@ -25,15 +25,8 @@
  *   TELEGRAM_BOT_TOKEN
  *   TELEGRAM_CHAT_ID — лише як запасний адресат картки-замінника
  */
-import {
-  cardText,
-  clean,
-  keyboard,
-  kyivDate,
-  REASONS,
-  type LeadRow,
-  type Status,
-} from '../../shared/card';
+import { clean, REASONS, type Status } from '../../shared/card';
+import { call, drawCard, telegramApi, type NotifyRow } from '../../shared/notify';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -93,106 +86,7 @@ const SET_REASON = `UPDATE leads
       SET decline_reason = ?, updated_at = ?
     WHERE id = ? AND status = 'declined'`;
 
-/** Рядок заявки плюс те, що потрібне лише для малювання картки */
-type FullRow = LeadRow & {
-  chat_id: string | null;
-  message_id: number | null;
-  notes: string | null;
-};
-
 const okEmpty = () => new Response('ok', { status: 200 });
-
-const call = (api: string, method: string, body: unknown) =>
-  fetch(`${api}/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-/**
- * Малює картку заявки з того, що зараз у базі: редагує наявне
- * повідомлення, а якщо не вийшло — надсилає нове й запамʼятовує саме
- * його.
- *
- * Спільний шлях для трьох випадків, які інакше розійшлися б: зміна
- * стану кнопкою, готова причина кнопкою, вільна причина відповіддю.
- */
-async function draw(env: Env, db: D1Database, api: string, row: FullRow): Promise<void> {
-  /* Попередження в картці. Перше рахуємо заново — воно залежить від
-     інших рядків таблиці; решту читаємо з колонки notes, куди їх
-     поклав /api/lead. Без неї перший же натиск стирав із картки
-     підказку «фото не передалося».
-
-     `created_at < ?`, а не `id <> ?`: «попереднє» звернення — те, що
-     раніше за цю заявку. Умова «будь-яке інше» показувала на картці
-     #5 дату заявки #9, тобто дату, якої на момент #5 ще не було. */
-  const notes: string[] = [];
-  const before = await db
-    .prepare(
-      'SELECT created_at FROM leads WHERE phone = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1'
-    )
-    .bind(row.phone, row.created_at)
-    .first<{ created_at: string }>();
-  if (before) notes.push(`⚠️ Цей номер уже звертався: ${kyivDate(before.created_at)}`);
-  for (const note of (row.notes ?? '').split('\n')) {
-    if (note.trim()) notes.push(note);
-  }
-
-  const text = cardText(row, notes);
-  const markup = keyboard(row);
-
-  /* Один шлях на дві біди: редагування не вдалося або редагувати
-     нічого (зворотний запис message_id колись не пройшов). В обох
-     випадках надсилаємо картку заново і запамʼятовуємо саме її — без
-     цього наступний натиск редагував би те саме старе повідомлення й
-     плодив ще одну картку, а стан у базі мінявся б без жодного сліду
-     в чаті. */
-  let drawn = false;
-
-  if (row.chat_id && row.message_id) {
-    const edited = await call(api, 'editMessageText', {
-      chat_id: row.chat_id,
-      message_id: row.message_id,
-      text,
-      reply_markup: markup,
-    });
-
-    drawn = edited.ok;
-
-    /* «message is not modified» — не збій: картка вже така, як треба.
-       Раніше ця відмова гнала код у sendMessage, і в чаті зʼявлявся
-       другий екземпляр тієї самої заявки. */
-    if (!drawn) {
-      const why = (await edited.json().catch(() => ({}))) as { description?: string };
-      if (/message is not modified/i.test(why.description ?? '')) drawn = true;
-    }
-  }
-
-  if (drawn) return;
-
-  const chatId = row.chat_id || env.TELEGRAM_CHAT_ID;
-  if (!chatId) return;
-
-  const sent = await call(api, 'sendMessage', { chat_id: chatId, text, reply_markup: markup });
-  if (!sent.ok) return;
-
-  try {
-    const data = (await sent.json()) as {
-      result?: { message_id?: number; chat?: { id?: number } };
-    };
-    const messageId = data.result?.message_id;
-    const newChatId = data.result?.chat?.id;
-    if (messageId && newChatId) {
-      await db
-        .prepare('UPDATE leads SET chat_id = ?, message_id = ? WHERE id = ?')
-        .bind(String(newChatId), messageId, row.id)
-        .run();
-    }
-  } catch {
-    // Картка в чаті вже є; не запамʼяталось — наступний натиск
-    // надішле ще одну. Краще за втрачений стан.
-  }
-}
 
 /**
  * Відповідь оператора з вільною причиною відмови.
@@ -227,7 +121,7 @@ async function reasonFromReply(
   const drop = (messageId: number) =>
     call(api, 'deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => {});
 
-  const row = await db.prepare(SELECT_LEAD).bind(id).first<FullRow>();
+  const row = await db.prepare(SELECT_LEAD).bind(id).first<NotifyRow>();
   if (!row) {
     await store.delete(key);
     return;
@@ -254,7 +148,7 @@ async function reasonFromReply(
     .run();
 
   if (Number(written.meta?.changes ?? 0) > 0) {
-    await draw(env, db, api, { ...row, decline_reason: reason });
+    await drawCard(db, api, env.TELEGRAM_CHAT_ID, { ...row, decline_reason: reason });
   }
 
   /* Прибираємо після запису, не до: якщо видалення не вдасться, причина
@@ -289,7 +183,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return okEmpty();
   }
 
-  const api = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
+  const api = telegramApi(env.TELEGRAM_BOT_TOKEN);
 
   if (update.message) {
     // Вільна причина відмови. Усе інше, що людина пише в чат, лишається
@@ -333,7 +227,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let changed = false; // чи встиг пройти запис — від цього залежить текст помилки
 
   try {
-    const row = await db.prepare(SELECT_LEAD).bind(id).first<FullRow>();
+    const row = await db.prepare(SELECT_LEAD).bind(id).first<NotifyRow>();
 
     if (!row) {
       await close('Заявку не знайдено');
@@ -343,7 +237,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     /* Готова причина відмови. Стану не міняє, тому ідемпотентність тут
        інша: повторний натиск запише те саме значення, картка не
        зміниться, і Telegram відповість «message is not modified», яке
-       draw() рахує успіхом. */
+       drawCard() рахує успіхом. */
     const preset = /^r([0-9]+)$/.exec(action ?? '');
     if (preset) {
       const reason = REASONS[Number(preset[1])];
@@ -362,7 +256,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .run();
       changed = Number(written.meta?.changes ?? 0) > 0;
 
-      if (changed) await draw(env, db, api, { ...row, decline_reason: reason });
+      if (changed) await drawCard(db, api, env.TELEGRAM_CHAT_ID, { ...row, decline_reason: reason });
       await close('Причину записано');
       return okEmpty();
     }
@@ -508,7 +402,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     changed = true;
 
-    await draw(env, db, api, {
+    await drawCard(db, api, env.TELEGRAM_CHAT_ID, {
       ...row,
       status: target,
       actor_name: who,
