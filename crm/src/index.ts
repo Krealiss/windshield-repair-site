@@ -12,8 +12,14 @@ import type { Env } from './env';
 import { readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
-import { listLeads } from './db';
+import { applyChange, getLead, historyByPhone, listLeads } from './db';
 import { leadsPage } from './views/leads';
+import { leadPage } from './views/lead';
+import { layout } from './views/layout';
+import { html } from 'hono/html';
+import { syncCard } from './sync';
+import { clean, type Status } from '../../shared/card';
+import { fromLocalInput, toKop } from './format';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -115,6 +121,125 @@ app.get('/', async (c) => {
   });
 
   return c.html(leadsPage(rows, { q, status, from, to }, c.get('viewer')));
+});
+
+/** Номер заявки з адреси. Усе, що не є цілим додатним числом, — не наша заявка */
+function leadId(raw: string): number | null {
+  return /^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null;
+}
+
+app.get('/lead/:id', async (c) => {
+  const id = leadId(c.req.param('id'));
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!lead) return c.notFound();
+  const history = await historyByPhone(c.env.DB, lead.phone);
+  return c.html(leadPage(lead, history, c.get('viewer')));
+});
+
+app.post('/lead/:id/appoint', async (c) => {
+  const id = leadId(c.req.param('id'));
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  const form = await c.req.formData();
+  const at = fromLocalInput(String(form.get('appointment_at') ?? ''));
+  // Порожній або нерозібраний час — не запис: не беремо заявку в роботу
+  // і не стираємо попередній запис
+  if (!at) return c.redirect(`/lead/${id}`);
+
+  const viewer = c.get('viewer');
+
+  // Запис означає, що заявку взяли в роботу — окремого стану немає
+  await applyChange(c.env.DB, id, {
+    appointment_at: at,
+    ...(lead.status === 'new'
+      ? { status: 'in_work' as const, actor_id: viewer.tg_id, actor_name: viewer.name }
+      : {}),
+  });
+
+  await syncCard(c.env, id);
+  return c.redirect(`/lead/${id}`);
+});
+
+app.post('/lead/:id/close', async (c) => {
+  const id = leadId(c.req.param('id'));
+  if (!id || !(await getLead(c.env.DB, id))) return c.notFound();
+
+  const form = await c.req.formData();
+  const viewer = c.get('viewer');
+
+  // Закриття без суми — це й є те, що потім не зійдеться у звіті
+  const amount = toKop(String(form.get('amount') ?? ''));
+  if (amount === null) {
+    return c.html(
+      layout(
+        'Сума не вказана',
+        html`<h1>Сума не вказана</h1>
+          <p>Введіть суму числом, наприклад 1200 або 1200,50.</p>
+          <p><a href="/lead/${id}">← Назад до заявки</a></p>`,
+        viewer
+      ),
+      400
+    );
+  }
+
+  await applyChange(c.env.DB, id, {
+    status: 'done',
+    closed_at: new Date().toISOString(),
+    amount,
+    work_note: clean(form.get('work_note'), 400) || null,
+    actor_id: viewer.tg_id,
+    actor_name: viewer.name,
+  });
+
+  await syncCard(c.env, id);
+  return c.redirect(`/lead/${id}`);
+});
+
+app.post('/lead/:id/decline', async (c) => {
+  const id = leadId(c.req.param('id'));
+  if (!id || !(await getLead(c.env.DB, id))) return c.notFound();
+
+  const form = await c.req.formData();
+  const viewer = c.get('viewer');
+
+  /* Власна причина, якщо її вписали, бере гору над списком: у списку
+     завжди стоїть перший пункт, і вписаний вручну текст мовчки
+     губився б, якщо не змінити вибір. */
+  const other = clean(form.get('other'), 200);
+  const picked = clean(form.get('reason'), 200);
+  const reason = other || picked || null;
+
+  await applyChange(c.env.DB, id, {
+    status: 'declined',
+    actor_id: viewer.tg_id,
+    actor_name: viewer.name,
+    decline_reason: reason,
+  });
+
+  await syncCard(c.env, id);
+  return c.redirect(`/lead/${id}`);
+});
+
+app.post('/lead/:id/undo', async (c) => {
+  const id = leadId(c.req.param('id'));
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  /* Як у боті, повернення є лише з фінальних станів. Без цього подвійне
+     натискання зробило б зі щойно повернутої заявки ту саму, що була
+     до повернення: prev_status у неї якраз вказує назад. */
+  if (lead.status !== 'done' && lead.status !== 'declined') return c.redirect(`/lead/${id}`);
+
+  const viewer = c.get('viewer');
+  await applyChange(c.env.DB, id, {
+    status: (lead.prev_status ?? 'new') as Status,
+    actor_id: viewer.tg_id,
+    actor_name: viewer.name,
+  });
+
+  await syncCard(c.env, id);
+  return c.redirect(`/lead/${id}`);
 });
 
 export default app;

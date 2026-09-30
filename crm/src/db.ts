@@ -1,4 +1,4 @@
-import type { LeadRow } from '../../shared/card';
+import type { LeadRow, Status } from '../../shared/card';
 
 export type LeadFull = LeadRow & {
   chat_id: string | null;
@@ -107,4 +107,75 @@ export async function listDay(db: D1Database, dayStart: string, dayEnd: string) 
     .bind(dayStart, dayEnd)
     .all<LeadFull>();
   return res.results ?? [];
+}
+
+export type Patch = {
+  status?: Status;
+  appointment_at?: string | null;
+  closed_at?: string | null;
+  amount?: number | null;
+  work_note?: string | null;
+  decline_reason?: string | null;
+  actor_id?: string;
+  actor_name?: string;
+};
+
+/**
+ * Єдиний шлях зміни заявки.
+ *
+ * Зміна стану веде себе так само, як у боті: `AND status <> ?` тримає
+ * інваріант prev_status <> status, тож «Повернути» завжди має куди
+ * вести. Повторна та сама зміна нічого не переписує.
+ *
+ * decline_reason скидається на кожній зміні стану: у свіжій відмові
+ * причини ще немає, при поверненні вона стає неправдою, а при повторній
+ * відмові лишилася б стара.
+ */
+export async function applyChange(
+  db: D1Database,
+  id: number,
+  patch: Patch
+): Promise<LeadFull | null> {
+  const sets: string[] = [];
+  const bind: unknown[] = [];
+  const where: string[] = ['id = ?'];
+
+  /* Порядок важливий. Зміна стану скидає причину відмови, але якщо
+     причину передали в цьому ж патчі — скидати нічого не треба, інакше
+     в UPDATE опинилося б два присвоєння одній колонці. */
+  const hasReason = patch.decline_reason !== undefined;
+
+  if (patch.status) {
+    sets.push('prev_status = status', 'status = ?');
+    bind.push(patch.status);
+    if (!hasReason) sets.push('decline_reason = NULL');
+  }
+
+  for (const field of ['appointment_at', 'closed_at', 'amount', 'work_note', 'decline_reason'] as const) {
+    if (patch[field] !== undefined) {
+      sets.push(`${field} = ?`);
+      bind.push(patch[field]);
+    }
+  }
+
+  if (patch.actor_id !== undefined) {
+    sets.push('actor_id = ?', 'actor_name = ?');
+    bind.push(patch.actor_id, patch.actor_name ?? null);
+  }
+
+  sets.push('updated_at = ?');
+  bind.push(new Date().toISOString());
+
+  bind.push(id);
+  if (patch.status) {
+    where.push('status <> ?');
+    bind.push(patch.status);
+  }
+
+  await db
+    .prepare(`UPDATE leads SET ${sets.join(', ')} WHERE ${where.join(' AND ')}`)
+    .bind(...bind)
+    .run();
+
+  return getLead(db, id);
 }
