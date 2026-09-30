@@ -33,7 +33,7 @@ import {
   REASONS,
   type LeadRow,
   type Status,
-} from '../_lib/card';
+} from '../../shared/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;

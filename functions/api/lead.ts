@@ -11,7 +11,7 @@
  *   RATE  →  KV namespace для обмеження частоти
  */
 
-import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../_lib/card';
+import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../../shared/card';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
