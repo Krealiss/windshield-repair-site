@@ -12,6 +12,8 @@ import type { Env } from './env';
 import { readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
+import { listLeads } from './db';
+import { leadsPage } from './views/leads';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -19,6 +21,20 @@ const COOKIE = 'crm_session';
 
 /** Імʼя бота для віджета. Значення видиме в HTML — це не секрет */
 const BOT_NAME = 'avtosklouabot';
+
+/* Сторінки CRM показують імена й телефони клієнтів, тож їх не можна
+   ні осаджувати в проміжних кешах, ні вбудовувати в чужу рамку
+   (клікджекінг). Середина стоїть першою, щоб покрити й сторінку входу,
+   і відповіді з редіректами та помилками. /health — технічна
+   перевірка без даних, її не чіпаємо. */
+app.use('*', async (c, next) => {
+  if (new URL(c.req.url).pathname !== '/health') {
+    c.header('Cache-Control', 'private, no-store');
+    c.header('X-Frame-Options', 'DENY');
+    c.header('Content-Security-Policy', "frame-ancestors 'none'");
+  }
+  return next();
+});
 
 // Перевірка живості: не вимагає ні бази, ні входу
 app.get('/health', (c) => c.text('ok'));
@@ -79,6 +95,26 @@ app.use('*', async (c, next) => {
 
   c.set('viewer', viewer);
   return next();
+});
+
+app.get('/', async (c) => {
+  const url = new URL(c.req.url);
+  const q = url.searchParams.get('q') ?? '';
+  const status = url.searchParams.get('status') ?? '';
+  const from = url.searchParams.get('from') ?? '';
+  const to = url.searchParams.get('to') ?? '';
+
+  /* Поле date дає «2026-09-30», а в базі час у UTC з часом доби. «До»
+     включно, тож беремо кінець дня, інакше заявки самого цього дня
+     випали б із вибірки. */
+  const rows = await listLeads(c.env.DB, {
+    q: q || undefined,
+    status: status || undefined,
+    from: from ? `${from}T00:00:00.000Z` : undefined,
+    to: to ? `${to}T23:59:59.999Z` : undefined,
+  });
+
+  return c.html(leadsPage(rows, { q, status, from, to }, c.get('viewer')));
 });
 
 export default app;
