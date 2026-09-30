@@ -96,12 +96,18 @@ export async function historyByPhone(db: D1Database, phone: string): Promise<Lea
   return res.results ?? [];
 }
 
-/** Записані на добу від `dayStart` (ISO) — список на день */
+/**
+ * Записані на добу від `dayStart` (ISO) — список на день.
+ *
+ * Лише живі заявки: appointment_at не чиститься, коли заявка виходить у
+ * фінал, і відмовлена чи виконана опинилася б у розписі.
+ */
 export async function listDay(db: D1Database, dayStart: string, dayEnd: string) {
   const res = await db
     .prepare(
       `SELECT ${LEAD_COLUMNS} FROM leads
         WHERE appointment_at >= ? AND appointment_at < ?
+          AND status IN ('new', 'in_work')
         ORDER BY appointment_at`
     )
     .bind(dayStart, dayEnd)

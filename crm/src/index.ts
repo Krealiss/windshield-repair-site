@@ -141,6 +141,9 @@ app.post('/lead/:id/appoint', async (c) => {
   const lead = id && (await getLead(c.env.DB, id));
   if (!id || !lead) return c.notFound();
 
+  // Запис має сенс лише для живої заявки; у фіналі спершу «Повернути»
+  if (lead.status === 'done' || lead.status === 'declined') return c.redirect(`/lead/${id}`);
+
   const form = await c.req.formData();
   const at = fromLocalInput(String(form.get('appointment_at') ?? ''));
   // Порожній або нерозібраний час — не запис: не беремо заявку в роботу
@@ -163,7 +166,11 @@ app.post('/lead/:id/appoint', async (c) => {
 
 app.post('/lead/:id/close', async (c) => {
   const id = leadId(c.req.param('id'));
-  if (!id || !(await getLead(c.env.DB, id))) return c.notFound();
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  // З відмови в «виконано» напряму не можна — спершу «Повернути», як у боті
+  if (lead.status === 'declined') return c.redirect(`/lead/${id}`);
 
   const form = await c.req.formData();
   const viewer = c.get('viewer');
@@ -183,14 +190,29 @@ app.post('/lead/:id/close', async (c) => {
     );
   }
 
-  await applyChange(c.env.DB, id, {
-    status: 'done',
-    closed_at: new Date().toISOString(),
-    amount,
-    work_note: clean(form.get('work_note'), 400) || null,
-    actor_id: viewer.tg_id,
-    actor_name: viewer.name,
-  });
+  const workNote = clean(form.get('work_note'), 400) || null;
+
+  if (lead.status === 'done') {
+    /* Уточнення вже виконаної заявки — найчастіше тієї, яку закрили
+       кнопкою в боті, де суми немає. Переходу тут нема, тож патч без
+       `status`: сторож `status <> ?` у applyChange стоїть на переході, і
+       з ним ці поля мовчки не записались би. Виконавця не міняємо: хто
+       взяв, той і взяв. */
+    await applyChange(c.env.DB, id, {
+      closed_at: lead.closed_at ?? new Date().toISOString(),
+      amount,
+      work_note: workNote,
+    });
+  } else {
+    await applyChange(c.env.DB, id, {
+      status: 'done',
+      closed_at: new Date().toISOString(),
+      amount,
+      work_note: workNote,
+      actor_id: viewer.tg_id,
+      actor_name: viewer.name,
+    });
+  }
 
   await syncCard(c.env, id);
   return c.redirect(`/lead/${id}`);
@@ -198,7 +220,11 @@ app.post('/lead/:id/close', async (c) => {
 
 app.post('/lead/:id/decline', async (c) => {
   const id = leadId(c.req.param('id'));
-  if (!id || !(await getLead(c.env.DB, id))) return c.notFound();
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  // З «виконано» в відмову напряму не можна — спершу «Повернути», як у боті
+  if (lead.status === 'done') return c.redirect(`/lead/${id}`);
 
   const form = await c.req.formData();
   const viewer = c.get('viewer');
@@ -210,12 +236,20 @@ app.post('/lead/:id/decline', async (c) => {
   const picked = clean(form.get('reason'), 200);
   const reason = other || picked || null;
 
-  await applyChange(c.env.DB, id, {
-    status: 'declined',
-    actor_id: viewer.tg_id,
-    actor_name: viewer.name,
-    decline_reason: reason,
-  });
+  if (lead.status === 'declined') {
+    /* Причина для заявки, відмовленої без неї (наприклад, з бота, де її
+       можна дописати будь-коли). Патч без `status`, інакше сторож
+       `status <> ?` відкинув би й причину. Порожнє значення нічого не
+       стирає. */
+    if (reason) await applyChange(c.env.DB, id, { decline_reason: reason });
+  } else {
+    await applyChange(c.env.DB, id, {
+      status: 'declined',
+      actor_id: viewer.tg_id,
+      actor_name: viewer.name,
+      decline_reason: reason,
+    });
+  }
 
   await syncCard(c.env, id);
   return c.redirect(`/lead/${id}`);
@@ -231,9 +265,15 @@ app.post('/lead/:id/undo', async (c) => {
      до повернення: prev_status у неї якраз вказує назад. */
   if (lead.status !== 'done' && lead.status !== 'declined') return c.redirect(`/lead/${id}`);
 
+  /* prev_status не приймаємо на віру. Бот тримає інваріант «попередній
+     стан ніколи не фінальний», але рядок, записаний інакше, замкнув би
+     заявку між двома фіналами. Тому фінальне значення — це «нова». */
+  const p = lead.prev_status;
+  const target: Status = p && p !== 'done' && p !== 'declined' ? p : 'new';
+
   const viewer = c.get('viewer');
   await applyChange(c.env.DB, id, {
-    status: (lead.prev_status ?? 'new') as Status,
+    status: target,
     actor_id: viewer.tg_id,
     actor_name: viewer.name,
   });

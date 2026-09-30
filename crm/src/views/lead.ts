@@ -7,10 +7,14 @@ import { REASONS } from '../../../shared/card';
 export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
   const notes = (lead.notes ?? '').split('\n').filter((n) => n.trim());
 
-  /* Дії показуємо лише там, де вони щось змінять. Повторна зміна в той
-     самий стан нічого не переписує (так і задумано), тож форма
-     «Виконано» на виконаній заявці мовчки нічого б не робила. «Повернути»
-     є лише у фінальних станах — як у боті. */
+  /* Кнопки — ті самі переходи, що й у боті. З фінального стану є єдиний
+     вихід, «Повернути»: прямі done↔declined ламали б інваріант, на якому
+     тримається бот (prev_status ніколи не фінальний), і заявка
+     замикалася б між двома фіналами.
+
+     На виконаній і відмовленій заявці форми лишаються, але вже як
+     уточнення: сума для заявки, закритої кнопкою в боті, і причина для
+     відмови без причини. Вони пишуть поля, а не переходять у стан. */
   const isFinal = lead.status === 'done' || lead.status === 'declined';
 
   return layout(
@@ -32,9 +36,12 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
       ${lead.status === 'declined' && lead.decline_reason
         ? html`<p>Причина відмови: ${lead.decline_reason}</p>`
         : ''}
-      ${lead.status === 'done' && lead.closed_at
-        ? html`<p>Закрито ${dateTime(lead.closed_at)} на ${money(lead.amount)}.
-            ${lead.work_note ?? ''}</p>`
+      ${lead.status === 'done'
+        ? lead.amount !== null
+          ? html`<p>Закрито${lead.closed_at ? html` ${dateTime(lead.closed_at)}` : ''} на
+              ${money(lead.amount)}. ${lead.work_note ?? ''}</p>`
+          : html`<p><strong>Виконана, але суму не вказано</strong> (закрита кнопкою в
+              боті). ${lead.work_note ?? ''}</p>`
         : ''}
 
       ${isFinal
@@ -45,25 +52,26 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
               <button type="submit">Записати</button>
             </form>`}
 
-      ${lead.status === 'done'
-        ? ''
-        : html`<h2>Закрити роботу</h2>
-            <form method="post" action="/lead/${lead.id}/close">
-              <label>Сума, ₴ <input name="amount" inputmode="decimal" required /></label>
-              <label>Що зробили <textarea name="work_note" rows="2"></textarea></label>
-              <button type="submit">Виконано</button>
-            </form>`}
-
       ${lead.status === 'declined'
         ? ''
-        : html`<h2>Відмова</h2>
+        : html`<h2>${lead.status === 'done' ? 'Уточнити суму' : 'Закрити роботу'}</h2>
+            <form method="post" action="/lead/${lead.id}/close">
+              <label>Сума, ₴ <input name="amount" inputmode="decimal" required /></label>
+              <label>Що зробили
+                <textarea name="work_note" rows="2">${lead.status === 'done' ? (lead.work_note ?? '') : ''}</textarea>
+              </label>
+              <button type="submit">${lead.status === 'done' ? 'Зберегти' : 'Виконано'}</button>
+            </form>`}
+
+      ${lead.status === 'done'
+        ? ''
+        : html`<h2>${lead.status === 'declined' ? 'Причина відмови' : 'Відмова'}</h2>
             <form method="post" action="/lead/${lead.id}/decline">
               <select name="reason">
                 ${REASONS.map((r) => html`<option value="${r}">${r}</option>`)}
-                <option value="">Інша причина</option>
               </select>
               <input name="other" placeholder="Своя причина" />
-              <button type="submit">Відмовити</button>
+              <button type="submit">${lead.status === 'declined' ? 'Зберегти' : 'Відмовити'}</button>
             </form>`}
 
       ${isFinal
