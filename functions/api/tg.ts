@@ -86,7 +86,7 @@ const REASON_TTL = 3600;
 const REASON_MAX = 200;
 
 const SELECT_LEAD = `SELECT id, created_at, name, phone, age, car, photos, status, prev_status,
-              actor_name, decline_reason, chat_id, message_id, notes
+              actor_name, assignee_id, assignee_name, decline_reason, chat_id, message_id, notes
          FROM leads WHERE id = ?`;
 
 /** Записати причину можна лише у відмову — звідси умова в обох UPDATE */
@@ -460,6 +460,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                 status = ?,
                 actor_id = ?,
                 actor_name = ?,
+                assignee_id = CASE WHEN ? = 'in_work' THEN ? ELSE assignee_id END,
+                assignee_name = CASE WHEN ? = 'in_work' THEN ? ELSE assignee_name END,
                 decline_reason = NULL,${closing ? '\n                closed_at = ?,' : ''}
                 updated_at = ?
           WHERE id = ? AND status <> ?`
@@ -467,6 +469,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       .bind(
         target,
         fromId,
+        who,
+        target,
+        fromId,
+        target,
         who,
         ...(closing ? [now] : []),
         now,
@@ -487,6 +493,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ...row,
       status: target,
       actor_name: who,
+      // Виконавець міняється лише коли заявку беруть; інакше лишається,
+      // що був — так само, як в UPDATE вище
+      assignee_name: target === 'in_work' ? who : row.assignee_name,
       decline_reason: null,
     });
 
