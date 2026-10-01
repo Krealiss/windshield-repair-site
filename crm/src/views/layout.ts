@@ -203,6 +203,7 @@ export function layout(title: string, body: Body, viewer?: Viewer, current?: str
             <a href="/" ${current === 'leads' ? raw('aria-current="page"') : ''}>Заявки</a>
             <a href="/today" ${current === 'today' ? raw('aria-current="page"') : ''}>Сьогодні</a>
             <a href="/new" ${current === 'new' ? raw('aria-current="page"') : ''}>+ Нова</a>
+            <a href="/users" ${current === 'users' ? raw('aria-current="page"') : ''}>Люди</a>
           </nav>
           <form method="post" action="/logout">
             <button type="submit" class="btn btn--quiet" title="${viewer.name}">Вийти</button>

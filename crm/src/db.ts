@@ -1,4 +1,5 @@
 import type { LeadRow, Status } from '../../shared/card';
+import type { UserRow } from '../../shared/users';
 
 export type LeadFull = LeadRow & {
   chat_id: string | null;
@@ -257,4 +258,29 @@ export async function applyChange(
     .run();
 
   return getLead(db, id);
+}
+
+/** Усі люди, найстаріші зверху: порядок появи читається як історія */
+export async function listUsers(db: D1Database): Promise<(UserRow & { created_at: string })[]> {
+  const res = await db
+    .prepare('SELECT tg_id, name, role, active, created_at FROM users ORDER BY created_at')
+    .all<UserRow & { created_at: string }>();
+  return res.results ?? [];
+}
+
+/**
+ * Зняти або повернути доступ.
+ *
+ * Рядок не видаляємо ніколи: на ньому тримається історія «хто це
+ * робив», і видалення осиротило б заявки, зроблені цією людиною.
+ */
+export async function setUserActive(
+  db: D1Database,
+  tgId: string,
+  active: boolean
+): Promise<void> {
+  await db
+    .prepare('UPDATE users SET active = ? WHERE tg_id = ?')
+    .bind(active ? 1 : 0, tgId)
+    .run();
 }

@@ -12,12 +12,22 @@ import type { Env } from './env';
 import { missingSecret, readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
-import { applyChange, createLead, getLead, historyByPhone, listDay, listLeads } from './db';
+import {
+  applyChange,
+  createLead,
+  getLead,
+  historyByPhone,
+  listDay,
+  listLeads,
+  listUsers,
+  setUserActive
+} from './db';
 import { leadsPage } from './views/leads';
 import { leadPage } from './views/lead';
 import { clientPage } from './views/client';
 import { todayPage } from './views/today';
 import { newLeadPage } from './views/new';
+import { usersPage } from './views/users';
 import { layout } from './views/layout';
 import { html } from 'hono/html';
 import { syncCard } from './sync';
@@ -482,6 +492,36 @@ app.get('/today', async (c) => {
   const { from, to } = kyivDayBounds();
   const rows = await listDay(c.env.DB, from, to);
   return c.html(todayPage(rows, c.get('viewer')));
+});
+
+app.get('/users', async (c) => {
+  return c.html(usersPage(await listUsers(c.env.DB), c.get('viewer')));
+});
+
+app.post('/users/:tgId/active', async (c) => {
+  const tgId = c.req.param('tgId');
+  const form = await c.req.formData();
+  const active = String(form.get('active') ?? '') === '1';
+
+  const target = await c.env.DB.prepare('SELECT tg_id, role FROM users WHERE tg_id = ?')
+    .bind(tgId)
+    .first<{ tg_id: string; role: string }>();
+
+  if (!target) return c.notFound();
+
+  /* Власнику доступ не знімається. Він єдиний, хто заходить у CRM, і
+     знявши його собі, він замкнув би себе назовні — повернути було б
+     нічим, крім правки бази руками. Перевірка тут, на сервері: форму
+     можна підробити, а непомальована кнопка — не захист. */
+  if (target.role === 'owner') {
+    return c.html(
+      usersPage(await listUsers(c.env.DB), c.get('viewer'), 'Власнику доступ не знімається.'),
+      400
+    );
+  }
+
+  await setUserActive(c.env.DB, tgId, active);
+  return c.redirect('/users');
 });
 
 export default app;
