@@ -8,11 +8,13 @@ export type LeadFull = LeadRow & {
   closed_at: string | null;
   amount: number | null;
   work_note: string | null;
+  /** site | phone — звідки прийшла заявка */
+  source: string;
 };
 
 export const LEAD_COLUMNS = `id, created_at, name, phone, age, car, photos, status,
   prev_status, actor_name, decline_reason, chat_id, message_id, notes,
-  appointment_at, closed_at, amount, work_note`;
+  appointment_at, closed_at, amount, work_note, source`;
 
 /** Скільки заявок показує список і скільки рядків переглядає пошук за імʼям */
 const SHOWN = 200;
@@ -158,6 +160,56 @@ export type Patch = {
  * читають суму тільки під `status === 'done'`, і майбутні звіти мусять
  * робити так само: `SELECT sum(amount)` без цієї умови завищить дохід.
  */
+/**
+ * Заводить заявку, яку оператор записав зі слів клієнта по телефону.
+ *
+ * Стан одразу `in_work`, а не `new`: «нова» означає «ніхто ще не
+ * дивився», а тут оператор щойно говорив із людиною. Виконавцем
+ * стає той, хто заводить, — так само, як бот записує того, хто
+ * натиснув кнопку.
+ *
+ * `photos` нуль і не передається: по телефону знімків не буває. Якщо
+ * клієнт потім надішле фото, це видно буде в чаті, а не тут.
+ */
+export async function createLead(
+  db: D1Database,
+  data: {
+    name: string;
+    phone: string;
+    age: string | null;
+    car: string | null;
+    appointment_at: string | null;
+    actor_id: string;
+    actor_name: string;
+  }
+): Promise<number> {
+  const now = new Date().toISOString();
+
+  // last_row_id, а не RETURNING: перше є в D1 завжди, друге залежить
+  // від версії рушія — той самий вибір, що й у воркері сайту
+  const res = await db
+    .prepare(
+      `INSERT INTO leads
+         (created_at, name, phone, age, car, photos, status, prev_status,
+          actor_id, actor_name, updated_at, appointment_at, source)
+       VALUES (?, ?, ?, ?, ?, 0, 'in_work', 'new', ?, ?, ?, ?, 'phone')`
+    )
+    .bind(
+      now,
+      data.name,
+      data.phone,
+      data.age,
+      data.car,
+      data.actor_id,
+      data.actor_name,
+      now,
+      data.appointment_at
+    )
+    .run();
+
+  return Number(res.meta?.last_row_id ?? 0);
+}
+
 export async function applyChange(
   db: D1Database,
   id: number,

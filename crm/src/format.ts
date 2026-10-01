@@ -90,6 +90,26 @@ export function kyivDayBounds(now: Date = new Date()): { from: string; to: strin
   return { from, to };
 }
 
+/**
+ * Телефон, записаний зі слів клієнта, у той самий вигляд, що й на сайті
+ * (`+380XXXXXXXXX`).
+ *
+ * Прощаємо все, що людина встигає набрати на слух: пробіли, дужки,
+ * дефіси, «0» на початку замість «+380», номер із «380» без плюса.
+ * Інакше історія за номером розсиплеться на кілька клієнтів із тим
+ * самим телефоном, записаним по-різному — а вона й так тримається рівно
+ * на збігу рядків.
+ *
+ * Повертає null, якщо з набраного не виходить український мобільний.
+ */
+export function toPhone(input: string): string | null {
+  const d = input.replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('380')) return `+${d}`;
+  if (d.length === 10 && d.startsWith('0')) return `+38${d}`;
+  if (d.length === 9) return `+380${d}`;
+  return null;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   new: '🆕 Нова',
   in_work: '🔧 В роботі',

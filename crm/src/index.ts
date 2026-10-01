@@ -12,16 +12,17 @@ import type { Env } from './env';
 import { missingSecret, readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
-import { applyChange, getLead, historyByPhone, listDay, listLeads } from './db';
+import { applyChange, createLead, getLead, historyByPhone, listDay, listLeads } from './db';
 import { leadsPage } from './views/leads';
 import { leadPage } from './views/lead';
 import { clientPage } from './views/client';
 import { todayPage } from './views/today';
+import { newLeadPage } from './views/new';
 import { layout } from './views/layout';
 import { html } from 'hono/html';
 import { syncCard } from './sync';
 import { clean, type Status } from '../../shared/card';
-import { fromLocalInput, kyivDayBounds, toKop } from './format';
+import { fromLocalInput, kyivDayBounds, toKop, toPhone } from './format';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -401,6 +402,58 @@ app.get('/client/:phone', async (c) => {
   const rows = await historyByPhone(c.env.DB, phone);
   if (rows.length === 0) return c.notFound();
   return c.html(clientPage(phone, rows, c.get('viewer')));
+});
+
+/* Заявка зі слів клієнта, який подзвонив.
+   Без неї CRM бачила б лише ту частину потоку, що прийшла з сайту, —
+   а на цих даних стоять і історія клієнта, і майбутні звіти. */
+app.get('/new', (c) => c.html(newLeadPage(c.get('viewer'))));
+
+app.post('/new', async (c) => {
+  const form = await c.req.formData();
+  const raw = {
+    name: String(form.get('name') ?? ''),
+    phone: String(form.get('phone') ?? ''),
+    car: String(form.get('car') ?? ''),
+    age: String(form.get('age') ?? ''),
+    appointment_at: String(form.get('appointment_at') ?? ''),
+  };
+
+  const name = clean(raw.name, 120);
+  const phone = toPhone(raw.phone);
+
+  /* Повертаємо сторінку з набраним, а не порожню: оператор щойно
+     говорив із клієнтом і не має передруковувати все через одну цифру */
+  if (!name) return c.html(newLeadPage(c.get('viewer'), 'Вкажіть імʼя клієнта.', raw), 400);
+  if (!phone) {
+    return c.html(
+      newLeadPage(c.get('viewer'), 'Телефон не схожий на український мобільний.', raw),
+      400
+    );
+  }
+
+  const viewer = c.get('viewer');
+  const id = await createLead(c.env.DB, {
+    name,
+    phone,
+    age: clean(raw.age, 40) || null,
+    car: clean(raw.car, 120) || null,
+    appointment_at: fromLocalInput(raw.appointment_at),
+    actor_id: viewer.tg_id,
+    actor_name: viewer.name,
+  });
+
+  if (!id) {
+    return c.html(newLeadPage(c.get('viewer'), 'Не вдалося зберегти заявку.', raw), 500);
+  }
+
+  /* Картка йде в групу так само, як для вебзаявки: майстри мусять
+     бачити всю вхідну роботу, а не половину. drawCard сам надішле нове
+     повідомлення, бо chat_id у свіжого рядка порожній, і запамʼятає
+     його — далі заявка живе звичайним життям. */
+  c.executionCtx.waitUntil(syncCard(c.env, id));
+
+  return c.redirect(`/lead/${id}`);
 });
 
 app.get('/today', async (c) => {

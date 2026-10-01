@@ -430,7 +430,8 @@ npm run telegram:webhook -- https://avtoskloua.com/api/tg
 `0001_leads.sql` (таблиця), `0002_notes.sql` (колонка `notes`, у якій
 живуть попередження про фото — інакше перший же натиск кнопки стирав би
 їх із картки), `0003_decline_reason.sql` (колонка `decline_reason`) і
-`0004_crm.sql` (поля про виконану роботу й таблиця `users` для CRM).
+`0004_crm.sql` (поля про виконану роботу й таблиця `users` для CRM) і
+`0005_source.sql` (звідки прийшла заявка: сайт чи дзвінок).
 
 **Перед першим розгортанням треба створити базу й застосувати всі
 міграції.** Інакше кожна заявка приходитиме з рядком
@@ -443,6 +444,7 @@ npx wrangler d1 execute leads --remote --file=migrations/0001_leads.sql
 npx wrangler d1 execute leads --remote --file=migrations/0002_notes.sql
 npx wrangler d1 execute leads --remote --file=migrations/0003_decline_reason.sql
 npx wrangler d1 execute leads --remote --file=migrations/0004_crm.sql
+npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 ```
 
 Імʼя бази — `leads` (`avtoskloua` — це імʼя воркера, не бази; воно стоїть
@@ -535,6 +537,19 @@ npm run telegram:webhook -- https://avtoskloua.com/api/tg
 заявки з діями (записати на час, закрити із сумою, відмовити), картка
 клієнта з усіма його зверненнями і список «на сьогодні». Живе в теці
 `crm/`, розгортається окремим Cloudflare Worker, а базу ділить із сайтом.
+
+**Заявку можна завести й руками** — вкладка «+ Нова». Це для клієнтів,
+які подзвонили, а не заповнили форму: без цього CRM бачила б лише ту
+частину потоку, що прийшла з сайту, а на цих даних стоять і історія
+клієнта за номером, і майбутні звіти про гроші. Така заявка одразу
+потрапляє в стан «В роботі» (оператор щойно говорив із людиною, це вже
+не «ніхто не дивився») і надсилає картку в групу так само, як вебзаявка.
+Телефон приймається в будь-якому людському вигляді — «067 123 45 67»,
+«+380…», «380…» — і зводиться до одного запису, інакше історія за
+номером розсипалася б на кількох «різних» клієнтів.
+
+Звідки прийшла заявка, видно в колонці `source` (`site` або `phone`) і
+на самій картці.
 
 ### Навіщо окремий Worker
 
@@ -678,7 +693,7 @@ npx wrangler d1 create leads        # лише якщо бази ще немає
 заглушка, деплой навмисно впаде — розгорнути CRM у порожнечу гірше, ніж
 не розгорнути).
 
-Далі — **міграції, і лише потім код**. Для свіжої бази це всі чотири
+Далі — **міграції, і лише потім код**. Для свіжої бази це всі
 файли з `migrations/` по порядку; для наявної — ті, яких там ще немає:
 
 ```bash
@@ -686,6 +701,7 @@ npx wrangler d1 execute leads --remote --file=migrations/0001_leads.sql
 npx wrangler d1 execute leads --remote --file=migrations/0002_notes.sql
 npx wrangler d1 execute leads --remote --file=migrations/0003_decline_reason.sql
 npx wrangler d1 execute leads --remote --file=migrations/0004_crm.sql
+npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 ```
 
 Чому саме так: CRM читає колонки, яких до `0004` немає

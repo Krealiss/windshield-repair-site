@@ -37,7 +37,8 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
 
       <p class="muted">
         ${about ? html`${about}<br />` : ''}
-        Прийшла: ${dateTime(lead.created_at)}${lead.actor_name ? html` · взяв: ${lead.actor_name}` : ''}
+        ${lead.source === 'phone' ? '☎️ Записана з дзвінка · ' : ''}Прийшла:
+        ${dateTime(lead.created_at)}${lead.actor_name ? html` · взяв: ${lead.actor_name}` : ''}
       </p>
 
       ${notes.map((n) => html`<p class="warn">${n}</p>`)}
