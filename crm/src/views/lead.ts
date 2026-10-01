@@ -49,8 +49,18 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
         : html`<h2>Запис на час</h2>
             <form method="post" action="/lead/${lead.id}/appoint">
               <input type="datetime-local" name="appointment_at" required />
-              <button type="submit">Записати</button>
-            </form>`}
+              <button type="submit">${lead.appointment_at ? 'Перезаписати' : 'Записати'}</button>
+            </form>
+            ${lead.appointment_at
+              ? html`<!-- Окрема форма, а не порожнє поле вище: порожнім
+                         значенням запис не стирається навмисно, інакше
+                         недонабраний час зносив би наявний. Клієнт
+                         скасував — заявка зникає зі «Сьогодні» й
+                         лишається в роботі. -->
+                  <form method="post" action="/lead/${lead.id}/unappoint">
+                    <button type="submit">Скасувати запис</button>
+                  </form>`
+              : ''}`}
 
       ${lead.status === 'declined'
         ? ''
@@ -67,7 +77,14 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
         ? ''
         : html`<h2>${lead.status === 'declined' ? 'Причина відмови' : 'Відмова'}</h2>
             <form method="post" action="/lead/${lead.id}/decline">
+              <!-- Перший пункт — порожній і типово обраний. Без нього
+                   <select> надсилав би REASONS[0] («Тріщина завелика —
+                   тільки заміна»), і один клік «Відмовити» записував би
+                   технічний діагноз як факт. Бот у цій ситуації лишає
+                   NULL, і звіт про втрачених клієнтів бачить різницю між
+                   «причини немає» і вигаданою причиною. -->
               <select name="reason">
+                <option value="">— без причини —</option>
                 ${REASONS.map((r) => html`<option value="${r}">${r}</option>`)}
               </select>
               <input name="other" placeholder="Своя причина" />

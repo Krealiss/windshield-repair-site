@@ -162,6 +162,22 @@ function leadId(raw: string): number | null {
   return /^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null;
 }
 
+/**
+ * Сторінка «дію не виконано, і ось чому».
+ *
+ * Форми тут — звичайний HTML без JS, тож прочитати причину оператор може
+ * лише на окремій сторінці. Мовчазний редірект назад на заявку виглядає
+ * як «нічого не сталося», і людина тисне ще раз.
+ */
+const problemPage = (viewer: Viewer, id: number, title: string, hint: string) =>
+  layout(
+    title,
+    html`<h1>${title}</h1>
+      <p>${hint}</p>
+      <p><a href="/lead/${id}">← Назад до заявки</a></p>`,
+    viewer
+  );
+
 app.get('/lead/:id', async (c) => {
   const id = leadId(c.req.param('id'));
   const lead = id && (await getLead(c.env.DB, id));
@@ -179,12 +195,26 @@ app.post('/lead/:id/appoint', async (c) => {
   if (lead.status === 'done' || lead.status === 'declined') return c.redirect(`/lead/${id}`);
 
   const form = await c.req.formData();
-  const at = fromLocalInput(String(form.get('appointment_at') ?? ''));
-  // Порожній або нерозібраний час — не запис: не беремо заявку в роботу
-  // і не стираємо попередній запис
-  if (!at) return c.redirect(`/lead/${id}`);
-
   const viewer = c.get('viewer');
+  const at = fromLocalInput(String(form.get('appointment_at') ?? ''));
+
+  /* Порожній або нерозібраний час — не запис. Тут саме сторінка з
+     поясненням, а не редірект: /close на непрочитану суму поводиться так
+     само, і два поля однієї картки не мусять відповідати по-різному.
+     Стерти наявний запис порожнім полем теж не можна — для цього є
+     окрема кнопка «Скасувати запис». */
+  if (!at) {
+    return c.html(
+      problemPage(
+        viewer,
+        id,
+        'Час запису не розібрано',
+        'Оберіть дату й час у полі «Записати на». Щоб зняти наявний запис, ' +
+          'скористайтеся кнопкою «Скасувати запис».'
+      ),
+      400
+    );
+  }
 
   // Запис означає, що заявку взяли в роботу — окремого стану немає
   await applyChange(c.env.DB, id, {
@@ -194,7 +224,31 @@ app.post('/lead/:id/appoint', async (c) => {
       : {}),
   });
 
-  await syncCard(c.env, id);
+  c.executionCtx.waitUntil(syncCard(c.env, id));
+  return c.redirect(`/lead/${id}`);
+});
+
+/**
+ * Знятий запис: клієнт скасував, а заявка лишається в роботі.
+ *
+ * Без цього маршруту заявку неможливо прибрати зі «Сьогодні», не
+ * зіпсувавши дані: лишались або вигадана дата, або передчасний фінал.
+ * Стану не чіпаємо — скасований запис не означає, що робота скінчилась.
+ *
+ * Фінальні стани теж пропускаємо: прибрати застарілий запис із
+ * закритої заявки нічого не псує, а «Сьогодні» і так показує лише живі.
+ */
+app.post('/lead/:id/unappoint', async (c) => {
+  const id = leadId(c.req.param('id'));
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  // Знімати нічого — і картку перемальовувати нема за чим
+  if (!lead.appointment_at) return c.redirect(`/lead/${id}`);
+
+  await applyChange(c.env.DB, id, { appointment_at: null });
+
+  c.executionCtx.waitUntil(syncCard(c.env, id));
   return c.redirect(`/lead/${id}`);
 });
 
@@ -213,12 +267,11 @@ app.post('/lead/:id/close', async (c) => {
   const amount = toKop(String(form.get('amount') ?? ''));
   if (amount === null) {
     return c.html(
-      layout(
+      problemPage(
+        viewer,
+        id,
         'Сума не вказана',
-        html`<h1>Сума не вказана</h1>
-          <p>Введіть суму числом, наприклад 1200 або 1200,50.</p>
-          <p><a href="/lead/${id}">← Назад до заявки</a></p>`,
-        viewer
+        'Введіть суму числом, наприклад 1200 або 1200,50.'
       ),
       400
     );
@@ -248,7 +301,7 @@ app.post('/lead/:id/close', async (c) => {
     });
   }
 
-  await syncCard(c.env, id);
+  c.executionCtx.waitUntil(syncCard(c.env, id));
   return c.redirect(`/lead/${id}`);
 });
 
@@ -263,9 +316,10 @@ app.post('/lead/:id/decline', async (c) => {
   const form = await c.req.formData();
   const viewer = c.get('viewer');
 
-  /* Власна причина, якщо її вписали, бере гору над списком: у списку
-     завжди стоїть перший пункт, і вписаний вручну текст мовчки
-     губився б, якщо не змінити вибір. */
+  /* Власна причина, якщо її вписали, бере гору над списком: інакше
+     вписаний вручну текст губився б мовчки, щойно в списку щось обрано.
+     Обидва можуть бути порожні — відмова без причини дозволена, як у
+     боті, і перший пункт списку порожній саме для цього. */
   const other = clean(form.get('other'), 200);
   const picked = clean(form.get('reason'), 200);
   const reason = other || picked || null;
@@ -285,7 +339,7 @@ app.post('/lead/:id/decline', async (c) => {
     });
   }
 
-  await syncCard(c.env, id);
+  c.executionCtx.waitUntil(syncCard(c.env, id));
   return c.redirect(`/lead/${id}`);
 });
 
@@ -312,7 +366,7 @@ app.post('/lead/:id/undo', async (c) => {
     actor_name: viewer.name,
   });
 
-  await syncCard(c.env, id);
+  c.executionCtx.waitUntil(syncCard(c.env, id));
   return c.redirect(`/lead/${id}`);
 });
 
