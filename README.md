@@ -599,6 +599,12 @@ npm run crm:dev                             # http://localhost:8789
 стає на ті самі локальні таблиці. Перш ніж запускати CRM, переконайтеся,
 що `0004` застосовано.
 
+Ще одна деталь того самого роду: `npm run crm:seed-owner` (без
+`--remote`) ходить у локальну базу через `wrangler d1 execute`, тож
+вимагає **кореневого** `wrangler.local.toml` — не того, що в `crm/`.
+Його вміст наведено в розділі «Telegram-бот»; без нього скрипт падає з
+«No configuration file found».
+
 Типи перевіряє `npm run crm:check`.
 
 ### Змінні
@@ -633,7 +639,15 @@ npm run crm:seed-owner -- --remote      # продакшн
 безпечний: рядок оновлюється, а не дублюється.
 
 Знятий доступ (`active = 0`) діє негайно: прапорець перевіряється на
-кожному запиті, а не лише при вході.
+кожному запиті, а не лише при вході. Саме це — **єдиний важіль
+відкликання доступу**: кнопка «Вийти» лише стирає куку в тому браузері,
+де її натиснули, а сама кука лишається дійсною до кінця строку (30
+днів), бо сховища сесій немає. Тож якщо телефон із відкритою CRM
+загубився — не «вихід», а `active = 0` у `users`:
+
+```bash
+npx wrangler d1 execute leads --remote --command "UPDATE users SET active = 0 WHERE tg_id = '…'"
+```
 
 ### Вхід: привʼязка домену до бота
 
@@ -662,23 +676,44 @@ npx wrangler d1 create leads        # лише якщо бази ще немає
 
 Підставте `database_id` з відповіді в `crm/wrangler.toml` (поки там
 заглушка, деплой навмисно впаде — розгорнути CRM у порожнечу гірше, ніж
-не розгорнути). Далі:
+не розгорнути).
+
+Далі — **міграції, і лише потім код**. Для свіжої бази це всі чотири
+файли з `migrations/` по порядку; для наявної — ті, яких там ще немає:
 
 ```bash
-npm run crm:deploy
+npx wrangler d1 execute leads --remote --file=migrations/0001_leads.sql
+npx wrangler d1 execute leads --remote --file=migrations/0002_notes.sql
+npx wrangler d1 execute leads --remote --file=migrations/0003_decline_reason.sql
+npx wrangler d1 execute leads --remote --file=migrations/0004_crm.sql
+```
+
+Чому саме так: CRM читає колонки, яких до `0004` немає
+(`appointment_at`, `closed_at`, `amount`, `work_note` і таблицю
+`users`). Розгорнути його на базу без `0004` — отримати помилку бази на
+першому ж відкритті списку. Сайт цих колонок не читає, тож для нього
+порядок не критичний; для CRM критичний.
+
+Потім сам Worker, секрети й власник — у цьому порядку:
+
+```bash
+npm run crm:deploy                      # видає адресу *.workers.dev
+cd crm                                  # secret put читає wrangler.toml поруч
+npx wrangler secret put SESSION_SECRET
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+cd ..
 npm run crm:seed-owner -- --remote
 ```
 
-І `SESSION_SECRET` та `TELEGRAM_BOT_TOKEN` — секретами Worker, як описано
-вище, **до** першого входу.
-
-**Порядок: спершу міграція, потім код.** CRM читає колонки, яких до
-`0004` немає (`appointment_at`, `closed_at`, `amount`, `work_note` і
-таблицю `users`). Розгорнути його на базу без `0004` — отримати помилку
-бази на першому ж відкритті списку. Тож щоразу: накотити нові міграції на
-`leads --remote` файлами (див. «Telegram-бот»), і лише тоді
-`npm run crm:deploy`. Те саме правило діє й для сайту: функції читають
-ці колонки теж.
+Секрети ставляться **після** першого розгортання не з недогляду:
+`wrangler secret put` вимагає, щоб Worker уже існував. Проміжок при
+цьому безпечний — поки `SESSION_SECRET` або `TELEGRAM_BOT_TOKEN`
+порожній, CRM відповідає **503** і сторінкою «не налаштовано» на кожен
+запит, крім `/health`. Інакше було б гірше за незручність: без
+справжнього токена перевірка підпису Telegram відкривалася б публічно
+відомим ключем (SHA-256 від порожнього входу), і зайти міг би будь-хто,
+хто знає адресу. `crm:seed-owner` — останнім: доступ дає саме пара
+«секрети на місці» плюс «рядок у `users`».
 
 ### Пастка: кирилиця у `--command`
 
