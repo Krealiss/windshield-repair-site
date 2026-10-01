@@ -453,6 +453,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        при status = 'done'» описане в crm/src/db.ts. */
     const now = new Date().toISOString();
     const closing = target === 'done';
+    /* Виконавця ставить лише кнопка «В роботу». Дивимось на дію, а не на
+       ціль переходу: в `in_work` веде ще й «Повернути» зі «Виконано», а
+       воно не змінює, чия це робота — його може натиснути будь-хто.
+       Саме заради цієї різниці actor і assignee — окремі поля. */
+    const takes = action === 'work';
     const written = await db
       .prepare(
         `UPDATE leads
@@ -460,9 +465,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                 status = ?,
                 actor_id = ?,
                 actor_name = ?,
-                assignee_id = CASE WHEN ? = 'in_work' THEN ? ELSE assignee_id END,
-                assignee_name = CASE WHEN ? = 'in_work' THEN ? ELSE assignee_name END,
-                decline_reason = NULL,${closing ? '\n                closed_at = ?,' : ''}
+                decline_reason = NULL,${takes ? '\n                assignee_id = ?,\n                assignee_name = ?,' : ''}${closing ? '\n                closed_at = ?,' : ''}
                 updated_at = ?
           WHERE id = ? AND status <> ?`
       )
@@ -470,10 +473,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         target,
         fromId,
         who,
-        target,
-        fromId,
-        target,
-        who,
+        ...(takes ? [fromId, who] : []),
         ...(closing ? [now] : []),
         now,
         id,
@@ -493,9 +493,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ...row,
       status: target,
       actor_name: who,
-      // Виконавець міняється лише коли заявку беруть; інакше лишається,
+      // Виконавець міняється лише кнопкою «В роботу»; інакше лишається,
       // що був — так само, як в UPDATE вище
-      assignee_name: target === 'in_work' ? who : row.assignee_name,
+      assignee_name: takes ? who : row.assignee_name,
       decline_reason: null,
     });
 
