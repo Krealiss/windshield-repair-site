@@ -236,9 +236,15 @@ app.get('/lead/:id', async (c) => {
   const lead = id && (await getLead(c.env.DB, id));
   if (!lead) return c.notFound();
   const history = await historyByPhone(c.env.DB, lead.phone);
+  /* Поточний виконавець лишається у списку, навіть якщо доступ йому вже
+     знято: інакше він зникав би з вибору, обраним ставало б «— ніхто —»,
+     і одне випадкове «Призначити» мовчки стирало б виконавця. */
   const masters = (await listUsers(c.env.DB))
-    .filter((u) => u.active === 1)
-    .map((u) => ({ tg_id: u.tg_id, name: u.name }));
+    .filter((u) => u.active === 1 || u.tg_id === lead.assignee_id)
+    .map((u) => ({
+      tg_id: u.tg_id,
+      name: u.active === 1 ? u.name : `${u.name} (доступ знято)`,
+    }));
   return c.html(leadPage(lead, history, c.get('viewer'), masters));
 });
 

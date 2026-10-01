@@ -43,7 +43,7 @@ export function leadPage(
       <p class="muted">
         ${about ? html`${about}<br />` : ''}
         ${lead.source === 'phone' ? '☎️ Записана з дзвінка · ' : ''}Прийшла:
-        ${dateTime(lead.created_at)}${lead.actor_name ? html` · взяв: ${lead.actor_name}` : ''}
+        ${dateTime(lead.created_at)}${lead.actor_name ? html` · змінив: ${lead.actor_name}` : ''}
       </p>
 
       ${notes.map((n) => html`<p class="warn">${n}</p>`)}
@@ -67,6 +67,11 @@ export function leadPage(
         : ''}
 
       <h2>Майстер</h2>
+      <p class="${lead.assignee_name ? 'panel' : 'muted'}">
+        ${lead.assignee_name
+          ? html`Робить <strong>${lead.assignee_name}</strong>`
+          : 'Виконавця немає — заявку ще ніхто не взяв.'}
+      </p>
       <form method="post" action="/lead/${lead.id}/assign">
         <select name="assignee" aria-label="Майстер">
           <option value="">— ніхто —</option>

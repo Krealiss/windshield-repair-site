@@ -56,25 +56,31 @@ export function leadsPage(rows: LeadFull[], filter: ListFilter, viewer: Viewer) 
 
       ${rows.length === 0
         ? html`<p class="empty">Нічого не знайдено.</p>`
-        : rows.map(
-            (r) => html`<div class="card">
+        : rows.map((r) => {
+            /* Рядки збираємо списком, а <br /> ставимо лише між ними:
+               інакше заявка без авто й давності починалася б порожнім
+               рядком. */
+            const about = [r.car, r.age].filter(Boolean).join(' · ');
+            const meta = [
+              about ? html`${about}` : null,
+              r.appointment_at ? html`Запис: ${dateTime(r.appointment_at)}` : null,
+              r.assignee_name ? html`Майстер: ${r.assignee_name}` : null,
+            ].filter(Boolean);
+
+            return html`<div class="card">
               <a class="card__top" href="/lead/${r.id}" style="text-decoration: none; color: inherit">
                 <span class="chip">${statusLabel(r.status)}</span>
                 <span class="num">#${r.id}</span>
               </a>
               <a href="/lead/${r.id}" style="text-decoration: none; color: inherit">
                 <div class="card__name">${r.name}</div>
-                <div class="card__meta">
-                  ${[r.car, r.age].filter(Boolean).join(' · ')}
-                  ${r.appointment_at ? html`<br />Запис: ${dateTime(r.appointment_at)}` : ''}
-                  ${r.assignee_name ? html`<br />Майстер: ${r.assignee_name}` : ''}
-                </div>
+                <div class="card__meta">${meta.map((m, i) => (i ? html`<br />${m}` : m))}</div>
               </a>
               <div class="row" style="margin-top: .6rem">
                 <a class="btn" href="tel:${r.phone}">📞 ${r.phone}</a>
               </div>
-            </div>`
-          )}`,
+            </div>`;
+          })}`,
     viewer,
     'leads'
   );

@@ -304,10 +304,16 @@ export async function assignLead(
   assignee: { id: string; name: string } | null,
   by: { id: string; name: string }
 ): Promise<void> {
-  const lead = await getLead(db, id);
-  if (!lead) return;
-
-  const toWork = assignee !== null && lead.status === 'new';
+  /* Перехід вирішує сам SQL, а не прочитаний перед цим стан: між
+     читанням і записом майстер у групі міг заявку закрити, і тоді
+     запис поставив би status = 'in_work' при prev_status = 'done',
+     зламавши інваріант «prev_status ніколи не фінальний». SQLite
+     читає праві частини з доперезаписних значень, тож обидва CASE
+     бачать однаковий старий стан. */
+  const setWork = assignee
+    ? `prev_status = CASE WHEN status = 'new' THEN status ELSE prev_status END,
+              status = CASE WHEN status = 'new' THEN 'in_work' ELSE status END,`
+    : '';
 
   await db
     .prepare(
@@ -316,7 +322,7 @@ export async function assignLead(
               assignee_name = ?,
               actor_id = ?,
               actor_name = ?,
-              ${toWork ? "prev_status = status, status = 'in_work'," : ''}
+              ${setWork}
               updated_at = ?
         WHERE id = ?`
     )
