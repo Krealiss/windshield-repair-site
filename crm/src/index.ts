@@ -89,12 +89,27 @@ app.get('/auth', async (c) => {
     return c.html(loginPage(BOT_NAME, 'Підпис Telegram не підтвердився.'), 403);
   }
 
-  const row = await c.env.DB.prepare('SELECT tg_id, active FROM users WHERE tg_id = ?')
+  const row = await c.env.DB.prepare('SELECT tg_id, active, role FROM users WHERE tg_id = ?')
     .bind(String(params.id))
-    .first<{ tg_id: string; active: number }>();
+    .first<{ tg_id: string; active: number; role: string }>();
 
   if (!row || row.active !== 1) {
     return c.html(loginPage(BOT_NAME, 'Цей обліковий запис не має доступу.'), 403);
+  }
+
+  /* Дві двері, а не одна. Кнопка в групі міняє стан однієї заявки, яку
+     людина й так бачить у чаті; CRM показує всю базу — імена, телефони,
+     історію, суми. Автоматичне заведення майстрів відчиняє лише першу,
+     інакше будь-хто, кого колись додадуть у групу, отримав би заодно
+     повний доступ до бази клієнтів. */
+  if (row.role !== 'owner') {
+    return c.html(
+      loginPage(
+        BOT_NAME,
+        'CRM поки лише для власника. Заявками керуйте кнопками в групі.'
+      ),
+      403
+    );
   }
 
   setCookie(c, COOKIE, await signSession(row.tg_id, c.env.SESSION_SECRET), {
@@ -123,8 +138,10 @@ app.use('*', async (c, next) => {
   const tgId = await readSession(getCookie(c, COOKIE), c.env.SESSION_SECRET);
   if (!tgId) return c.redirect('/login');
 
+  // Роль перевіряється на кожному запиті, а не лише при вході: якщо
+  // власник колись знизить комусь роль, сесія мусить померти негайно
   const viewer = await c.env.DB.prepare(
-    'SELECT tg_id, name, role FROM users WHERE tg_id = ? AND active = 1'
+    "SELECT tg_id, name, role FROM users WHERE tg_id = ? AND active = 1 AND role = 'owner'"
   )
     .bind(tgId)
     .first<Viewer>();
