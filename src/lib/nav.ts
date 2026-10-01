@@ -29,9 +29,11 @@ export function buildNav(show: { gallery: boolean; reviews: boolean }): NavItem[
     ...(show.gallery
       ? [{ href: '#roboty', label: 'Результати робіт', short: 'Роботи' }]
       : []),
-    ...(show.reviews ? [{ href: '#vidhuky', label: 'Відгуки', short: 'Відгуки' }] : []),
     { href: '#faq', label: 'Питання і відповіді', short: 'Питання' },
     { href: '#lead', label: 'Залишити заявку', short: 'Заявка' },
+    // Відгуки після заявки — так вони стоять і на сторінці (див. порядок
+    // блоків в src/pages/index.astro). Меню мусить читатися як зміст
+    ...(show.reviews ? [{ href: '#vidhuky', label: 'Відгуки', short: 'Відгуки' }] : []),
     { href: '#contacts', label: 'Контакти', short: 'Контакти' },
   ];
 }
