@@ -13,6 +13,10 @@ function workCell(r: LeadFull): string {
 /**
  * Клієнт — це представлення за номером телефона, а не окрема таблиця.
  * Сутність зʼявиться, коли буде що зберігати понад заявки.
+ *
+ * Звернення показані картками: у таблиці з пʼяти колонок на телефоні
+ * нотатка про роботу обрізалася б першою, хоч саме вона й пояснює, що
+ * з цією машиною вже робили.
  */
 export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
   /* Гроші дає лише виконана заявка. «Повернути» не чистить amount і
@@ -28,29 +32,30 @@ export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
   return layout(
     phone,
     html`<h1>${name}</h1>
-      <p><a href="tel:${phone}">${phone}</a></p>
+
+      <a class="btn btn--primary btn--wide" href="tel:${phone}">📞 ${phone}</a>
+
       <p class="muted">
-        Звернень: ${rows.length}${cars.length ? html` · ${cars.join(', ')}` : ''}${
-          paid.length ? html` · разом ${money(total)}` : ''
-        }
+        Звернень: ${rows.length}${cars.length ? html` · ${cars.join(', ')}` : ''}
+        ${paid.length ? html`<br />Разом сплачено: <strong>${money(total)}</strong>` : ''}
       </p>
 
-      <table>
-        <thead>
-          <tr><th>#</th><th>Коли</th><th>Стан</th><th>Сума</th><th>Робота</th></tr>
-        </thead>
-        <tbody>
-          ${rows.map(
-            (r) => html`<tr>
-              <td><a href="/lead/${r.id}">#${r.id}</a></td>
-              <td>${dateTime(r.created_at)}</td>
-              <td>${statusLabel(r.status)}</td>
-              <td>${r.status === 'done' ? money(r.amount) : ''}</td>
-              <td>${workCell(r)}</td>
-            </tr>`
-          )}
-        </tbody>
-      </table>`,
+      <h2>Звернення</h2>
+      ${rows.map((r) => {
+        const work = workCell(r);
+        return html`<a class="card" href="/lead/${r.id}">
+          <div class="card__top">
+            <span class="chip">${statusLabel(r.status)}</span>
+            <span class="num">#${r.id}</span>
+          </div>
+          <div class="card__meta">
+            ${dateTime(r.created_at)}${r.status === 'done' && r.amount !== null
+              ? html` · <strong>${money(r.amount)}</strong>`
+              : ''}
+            ${work ? html`<br />${work}` : ''}
+          </div>
+        </a>`;
+      })}`,
     viewer
   );
 }
