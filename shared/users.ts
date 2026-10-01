@@ -56,5 +56,9 @@ export async function userForAction(
     .bind(tgId, name, new Date().toISOString())
     .run();
 
-  return findUser(db, tgId);
+  /* Повертаємо лише того, хто має право: між вставкою і читанням доступ
+     могли зняти, а виклик, що перевіряє лише на null, пропустив би
+     рядок із active = 0. */
+  const created = await findUser(db, tgId);
+  return created?.active === 1 ? created : null;
 }

@@ -27,6 +27,7 @@
  */
 import { clean, REASONS, type Status } from '../../shared/card';
 import { call, drawCard, telegramApi, type NotifyRow } from '../../shared/notify';
+import { userForAction } from '../../shared/users';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -200,17 +201,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const cq = update.callback_query;
   if (!cq?.data) return okEmpty(); // не натискання кнопки — не наша справа
 
-  /* Перевірки «натиснув власник» тут немає, і поки це безпечно:
-     callback_query приходить лише з повідомлень, які надіслав сам бот, а
-     надсилає він в один чат (TELEGRAM_CHAT_ID). chat_id для редагування
-     беремо з бази, а не з оновлення, тож підробити адресата теж не
-     виходить.
-
-     Коли зʼявиться група з майстрами, натиснути зможе будь-хто, кого в
-     неї додали, — і ось тут місце для перевірки cq.from.id за списком
-     дозволених. Зараз такого списку в проєкті немає, тому й перевірки
-     немає: вона б або пропускала всіх, або блокувала власника. */
-
   const close = (text: string) =>
     call(api, 'answerCallbackQuery', { callback_query_id: cq.id, text }).catch(() => {});
 
@@ -224,6 +214,41 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const db = env.DB;
+
+  /* Хто натиснув. Імʼя беремо живе, з Telegram: воно свіжіше за копію
+     в `users`, а в картку йде саме воно. Без clean() перенос рядка
+     всередині імені дописав би в картку рядок, що виглядає як поле
+     заявки. */
+  const who = clean(cq.from?.first_name || cq.from?.username || 'невідомо', 80) || 'невідомо';
+  const fromId = cq.from?.id ? String(cq.from.id) : '';
+
+  if (!fromId) {
+    await close('Не вдалося розпізнати, хто натиснув');
+    return okEmpty();
+  }
+
+  /* Доступ. Невідомого заводимо майстром — людина вже в групі, а це й є
+     рішення довіряти їй. Знятого не воскрешаємо.
+
+     Відмова видима, а не мовчазна: мовчання людина прочитає як поломку
+     бота й натисне ще кілька разів.
+
+     Власний try: збій бази тут не мусить ставати 500. Telegram повторює
+     доставку на будь-який код, крім 200, тож один збій перетворився б на
+     нескінченні ретраї того самого натискання. Відповідаємо 200 і
+     просимо людину натиснути ще раз. */
+  let user: Awaited<ReturnType<typeof userForAction>>;
+  try {
+    user = await userForAction(db, fromId, who);
+  } catch {
+    await close('Не вдалося перевірити доступ, спробуйте ще раз');
+    return okEmpty();
+  }
+  if (!user) {
+    await close('У вас немає доступу до заявок');
+    return okEmpty();
+  }
+
   let changed = false; // чи встиг пройти запис — від цього залежить текст помилки
 
   try {
@@ -379,12 +404,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await close('Заявку вже повернуто');
       return okEmpty();
     }
-
-    // Ім'я в Telegram людина ставить собі сама: без clean() перенос
-    // рядка всередині нього дописав би в картку рядок, що виглядає як
-    // справжнє поле заявки. Якщо після очищення нічого не лишилось —
-    // «невідомо», інакше в картці був би порожній рядок після «Взяв:».
-    const who = clean(cq.from?.first_name || cq.from?.username || 'невідомо', 80) || 'невідомо';
 
     /* `AND status <> ?` — другий рубіж проти того самого повтору. Два
        одночасні запити можуть обидва пройти перевірку вище, бо між
