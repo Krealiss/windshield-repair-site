@@ -9,7 +9,7 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { Env } from './env';
-import { readSession, signSession, verifyTelegramLogin } from './auth';
+import { missingSecret, readSession, signSession, verifyTelegramLogin } from './auth';
 import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
 import { applyChange, getLead, historyByPhone, listDay, listLeads } from './db';
@@ -46,6 +46,38 @@ app.use('*', async (c, next) => {
 
 // Перевірка живості: не вимагає ні бази, ні входу
 app.get('/health', (c) => c.text('ok'));
+
+/* Без секретів CRM не обслуговує нічого.
+ *
+ * Порожній TELEGRAM_BOT_TOKEN не ламав вхід, а відкривав його: ключем
+ * HMAC ставала SHA-256 від порожнього входу, публічно відома константа
+ * (докладніше — у missingSecret()). Саме в такому стані стоїть щойно
+ * розгорнутий Worker, поки не виконано `wrangler secret put`.
+ *
+ * Відмова видима, а не мовчазний 500: власник, який відкриє CRM раніше,
+ * ніж поставить секрети, мусить прочитати причину, а не гадати. 503 —
+ * «ще не налаштовано», не «зламано». /health лишається доступним: це
+ * технічна перевірка живості без даних, і вона зареєстрована вище.
+ */
+app.use('*', async (c, next) => {
+  if (new URL(c.req.url).pathname === '/health') return next();
+
+  const missing = missingSecret(c.env);
+  if (missing) {
+    // У журнал іде назва змінної, не значення
+    console.error(`CRM не налаштовано: ${missing} порожній або надто короткий`);
+    return c.html(
+      loginPage(
+        BOT_NAME,
+        `CRM не налаштовано: не задано ${missing}. ` +
+          'Поставте секрети Worker (wrangler secret put) — до того вхід неможливий.'
+      ),
+      503
+    );
+  }
+
+  return next();
+});
 
 app.get('/login', (c) => c.html(loginPage(BOT_NAME)));
 

@@ -36,12 +36,52 @@ function sameSecret(a: string, b: string): boolean {
 /** Скільки живе підпис Telegram. Доба — рекомендація самого Telegram */
 const LOGIN_MAX_AGE = 86400;
 
+/**
+ * Найкоротший секрет, який ми погоджуємося вважати секретом.
+ *
+ * Токен бота має вигляд `1234567890:AA…` — близько 46 символів;
+ * SESSION_SECRET за README — два UUID, тобто 72. Тридцять два стоїть із
+ * запасом нижче обох і відсікає рівно те, що нас цікавить: порожнє
+ * значення й заглушку.
+ */
+export const MIN_SECRET_LEN = 32;
+
+/**
+ * Чи можна взагалі обслуговувати запити.
+ *
+ * Порожній `TELEGRAM_BOT_TOKEN` не ламав перевірку підпису, а
+ * **відкривав** її: `enc.encode(undefined)` дає порожній масив, а
+ * SHA-256 від порожнього входу — публічно відома константа
+ * `e3b0c442…`. Нею можна підписати довільний `{id, auth_date}` і зайти
+ * за будь-кого, чий `tg_id` є в `users`.
+ *
+ * Вікно не умоглядне: поки секрети Worker не поставлено, розгорнута CRM
+ * стоїть саме в такому стані. Тому порожній або надто короткий секрет —
+ * відмова на вході, а не підпис.
+ *
+ * Повертає назву змінної, якої бракує, або null, якщо все на місці.
+ * Саму назву показати не страшно — це не значення.
+ */
+export function missingSecret(env: {
+  TELEGRAM_BOT_TOKEN?: string;
+  SESSION_SECRET?: string;
+}): string | null {
+  if ((env.TELEGRAM_BOT_TOKEN ?? '').length < MIN_SECRET_LEN) return 'TELEGRAM_BOT_TOKEN';
+  if ((env.SESSION_SECRET ?? '').length < MIN_SECRET_LEN) return 'SESSION_SECRET';
+  return null;
+}
+
 export async function verifyTelegramLogin(
   params: Record<string, string>,
   botToken: string
 ): Promise<boolean> {
   const given = params.hash;
   if (!given) return false;
+
+  /* Другий рубіж того самого сторожа, що стоїть мідлварою в index.ts:
+     функція перевірки підпису не має вміти сказати «так» без справжнього
+     ключа, хоч би хто її покликав. */
+  if ((botToken ?? '').length < MIN_SECRET_LEN) return false;
 
   // Рядок перевірки: усі поля, крім hash, за абеткою, через перенос
   const check = Object.keys(params)
