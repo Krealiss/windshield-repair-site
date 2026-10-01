@@ -169,10 +169,16 @@ export type Patch = {
 /**
  * Заводить заявку, яку оператор записав зі слів клієнта по телефону.
  *
- * Стан одразу `in_work`, а не `new`: «нова» означає «ніхто ще не
- * дивився», а тут оператор щойно говорив із людиною. Виконавцем
- * стає той, хто заводить, — так само, як бот записує того, хто
- * натиснув кнопку.
+ * Стан `new`, як і у вебзаявки, і виконавця немає. Спершу тут стояло
+ * `in_work` з оператором як виконавцем — мовляв, він щойно говорив із
+ * людиною. Рішення замовника це скасувало, і правильно: заявка з
+ * дзвінка мусить лежати на видноті, щоб її взяв той, хто вільний, або
+ * щоб власник призначив її комусь. Поставити її одразу «в роботу»
+ * означало б, що робить її той, хто просто підняв слухавку.
+ *
+ * Хто саме завів заявку, окремо не пишемо: для цього є `source =
+ * 'phone'`, а в CRM поки заходить лише власник. Коли туди пустять
+ * майстрів, знадобиться окрема колонка — але не раніше.
  *
  * `photos` нуль і не передається: по телефону знімків не буває. Якщо
  * клієнт потім надішле фото, це видно буде в чаті, а не тут.
@@ -185,8 +191,6 @@ export async function createLead(
     age: string | null;
     car: string | null;
     appointment_at: string | null;
-    actor_id: string;
-    actor_name: string;
   }
 ): Promise<number> {
   const now = new Date().toISOString();
@@ -196,21 +200,11 @@ export async function createLead(
   const res = await db
     .prepare(
       `INSERT INTO leads
-         (created_at, name, phone, age, car, photos, status, prev_status,
-          actor_id, actor_name, updated_at, appointment_at, source)
-       VALUES (?, ?, ?, ?, ?, 0, 'in_work', 'new', ?, ?, ?, ?, 'phone')`
+         (created_at, name, phone, age, car, photos, status,
+          updated_at, appointment_at, source)
+       VALUES (?, ?, ?, ?, ?, 0, 'new', ?, ?, 'phone')`
     )
-    .bind(
-      now,
-      data.name,
-      data.phone,
-      data.age,
-      data.car,
-      data.actor_id,
-      data.actor_name,
-      now,
-      data.appointment_at
-    )
+    .bind(now, data.name, data.phone, data.age, data.car, now, data.appointment_at)
     .run();
 
   return Number(res.meta?.last_row_id ?? 0);

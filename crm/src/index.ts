@@ -432,15 +432,15 @@ app.post('/new', async (c) => {
     );
   }
 
-  const viewer = c.get('viewer');
+  /* Заявка лягає «Новою» і без виконавця — її ще має хтось узяти.
+     Оператор лише записав те, що почув у слухавку; робити її може
+     інший. */
   const id = await createLead(c.env.DB, {
     name,
     phone,
     age: clean(raw.age, 40) || null,
     car: clean(raw.car, 120) || null,
     appointment_at: fromLocalInput(raw.appointment_at),
-    actor_id: viewer.tg_id,
-    actor_name: viewer.name,
   });
 
   if (!id) {
