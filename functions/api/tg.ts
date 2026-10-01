@@ -320,10 +320,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return okEmpty();
     }
 
-    // «Повернути» веде в стан, з якого заявка пішла у фінальний.
-    // Він збережений окремим полем саме тому, що з «Відмови» шлях
-    // може вести і в «Нову», і в «В роботі».
-    const target = action === 'undo' ? (row.prev_status ?? 'new') : NEXT[action ?? ''];
+    /* «Повернути» веде в стан, з якого заявка пішла у фінальний. Він
+       збережений окремим полем саме тому, що з «Відмови» шлях може
+       вести і в «Нову», і в «В роботі».
+
+       prev_status не беремо на віру. Інваріант «попередній стан ніколи
+       не фінальний» тримає цей самий обробник, але рядок, записаний
+       інакше (двоє натиснули різні кнопки під тією самою карткою, або
+       одне натискання наклалося на зміну з CRM), замкнув би заявку між
+       двома фіналами: «Повернути» ганяло б її по колу. Тому фінальне
+       значення означає «нова» — так само, як у CRM
+       (crm/src/index.ts, маршрут /undo). */
+    const prev = row.prev_status;
+    const target =
+      action === 'undo'
+        ? prev && !FINAL.includes(prev)
+          ? prev
+          : 'new'
+        : NEXT[action ?? ''];
     if (!target) {
       await close('Невідома дія');
       return okEmpty();
@@ -340,6 +354,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        нічим, крім ручної правки бази. */
     if (row.status === target) {
       await close('Заявка вже в цьому стані');
+      return okEmpty();
+    }
+
+    /* Прямий перехід з одного фіналу в інший відхиляємо. Кнопки такої
+       немає — keyboard() для фінального стану малює лише «Повернути», —
+       але клавіатура в чаті застаріває: поки editMessageText не долетів,
+       під карткою лишаються кнопки попереднього стану, і натиск «✅
+       Виконано» під уже відмовленою заявкою дійшов би сюди. Тоді і
+       status, і prev_status стали б фінальними — заявка замкнулася б між
+       двома фіналами, бо «Повернути» ганяло б її з одного в інший. */
+    if (FINAL.includes(row.status) && FINAL.includes(target)) {
+      await close('Спершу «Повернути»');
       return okEmpty();
     }
 
@@ -372,7 +398,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        decline_reason скидається на кожній зміні стану — і це правильно
        в усіх трьох напрямках: у свіжій відмові причини ще немає, при
        поверненні вона стає неправдою, а при повторній відмові після
-       повернення лишилася б стара. */
+       повернення лишилася б стара.
+
+       closed_at пишеться лише коли кнопка закриває заявку. Без цього
+       колонка лишалась би порожньою, і CRM при першому уточненні суми
+       підставляла б туди момент уточнення — дату, яка не є датою
+       закриття. Назад (при «Повернути») не чистимо: сума після
+       повернення теж лишається, і правило «ці поля значать щось лише
+       при status = 'done'» описане в crm/src/db.ts. */
+    const now = new Date().toISOString();
+    const closing = target === 'done';
     const written = await db
       .prepare(
         `UPDATE leads
@@ -380,7 +415,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                 status = ?,
                 actor_id = ?,
                 actor_name = ?,
-                decline_reason = NULL,
+                decline_reason = NULL,${closing ? '\n                closed_at = ?,' : ''}
                 updated_at = ?
           WHERE id = ? AND status <> ?`
       )
@@ -388,7 +423,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         target,
         cq.from?.id ? String(cq.from.id) : null,
         who,
-        new Date().toISOString(),
+        ...(closing ? [now] : []),
+        now,
         id,
         target
       )
