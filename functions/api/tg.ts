@@ -20,6 +20,13 @@
  * читаємо з KV, куди її поклали під ключем, що містить номер того самого
  * запиту.
  *
+ * Доступ. Усі дії бота — і кнопки, і вільна причина відмови — лише для
+ * користувача з `users.active = 1`. Невідомого натискача кнопки
+ * заводимо майстром: людину вже додали в групу, а це й є рішення
+ * довіряти їй. Знятий не воскресає: його натискання отримує видиму
+ * відмову, а текстова відповідь тихо ігнорується. Текстова відповідь
+ * нікого не заводить — лише кнопка.
+ *
  * Секрети (Pages → Settings → Environment variables, тип Secret):
  *   TELEGRAM_WEBHOOK_SECRET
  *   TELEGRAM_BOT_TOKEN
@@ -27,7 +34,7 @@
  */
 import { clean, REASONS, type Status } from '../../shared/card';
 import { call, drawCard, telegramApi, type NotifyRow } from '../../shared/notify';
-import { userForAction } from '../../shared/users';
+import { findUser, userForAction } from '../../shared/users';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -103,6 +110,7 @@ async function reasonFromReply(
   msg: {
     message_id?: number;
     text?: string;
+    from?: { id?: number };
     chat?: { id?: number };
     reply_to_message?: { message_id?: number };
   }
@@ -115,6 +123,24 @@ async function reasonFromReply(
   const key = `reason:${chatId}:${promptId}`;
   const rawId = await env.RATE.get(key);
   if (!rawId) return; // відповідь не на наш запит — не наша справа
+
+  /* Доступ. Запис причини — така сама дія над заявкою, як і кнопка, тож
+     знятий користувач не мусить її виконати: запит бота висить у чаті
+     для всіх, а `selective` лише підказує, кому показати поле відповіді.
+
+     Стоїть після перевірки ключа, щоб не ходити в базу на кожне
+     стороннє повідомлення в групі. `findUser`, а не `userForAction`:
+     невідомого текстова відповідь майстром не робить — його заводить
+     лише натискання кнопки.
+
+     Вихід мовчазний: без повідомлення в чат і без видалення. Кнопки тут
+     немає, тож підказку показати нічим, а нове повідомлення в групі —
+     шум і натяк стороннім, що їх помітили. Запит лишається на місці,
+     відповідь висить: нічого не виглядає прийнятим. */
+  const fromId = msg.from?.id ? String(msg.from.id) : '';
+  if (!fromId) return;
+  const author = await findUser(env.DB, fromId);
+  if (!author || author.active !== 1) return;
 
   const id = Number(rawId);
   const db = env.DB;
@@ -174,6 +200,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     message?: {
       message_id?: number;
       text?: string;
+      from?: { id?: number };
       chat?: { id?: number };
       reply_to_message?: { message_id?: number };
     };
@@ -192,8 +219,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     try {
       await reasonFromReply(env, api, update.message);
     } catch {
-      // Мовчки: помилка тут не мусить ані валити вебхук, ані сипати в
-      // чат повідомленнями на кожен сторонній рядок
+      // Мовчки для чату: помилка тут не мусить ані валити вебхук, ані сипати
+      // в чат повідомленнями на кожен сторонній рядок. У журнал — без значень.
+      console.error('tg: збій обробки відповіді з причиною відмови');
     }
     return okEmpty();
   }
@@ -241,6 +269,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     user = await userForAction(db, fromId, who);
   } catch {
+    // Без значень: лише що саме не вдалося, інакше в журнал потрапили б дані людини
+    console.error('tg: не вдалося перевірити доступ до дій бота (таблиця users)');
     await close('Не вдалося перевірити доступ, спробуйте ще раз');
     return okEmpty();
   }
@@ -410,10 +440,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        SELECT і UPDATE немає транзакції; цієї умови досить, щоб другий
        не перезаписав prev_status значенням, рівним status.
 
-       actor_id пишеться NULL, а не порожнім рядком: колонка nullable, і
-       CRM шукатиме майстрів через IS NULL, яке порожнього рядка не
-       побачить.
-
        decline_reason скидається на кожній зміні стану — і це правильно
        в усіх трьох напрямках: у свіжій відмові причини ще немає, при
        поверненні вона стає неправдою, а при повторній відмові після
@@ -440,7 +466,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       )
       .bind(
         target,
-        cq.from?.id ? String(cq.from.id) : null,
+        fromId,
         who,
         ...(closing ? [now] : []),
         now,
