@@ -11,11 +11,13 @@ export type LeadFull = LeadRow & {
   work_note: string | null;
   /** site | phone — звідки прийшла заявка */
   source: string;
+  assignee_id: string | null;
+  assignee_name: string | null;
 };
 
 export const LEAD_COLUMNS = `id, created_at, name, phone, age, car, photos, status,
   prev_status, actor_name, decline_reason, chat_id, message_id, notes,
-  appointment_at, closed_at, amount, work_note, source`;
+  appointment_at, closed_at, amount, work_note, source, assignee_id, assignee_name`;
 
 /** Скільки заявок показує список і скільки рядків переглядає пошук за імʼям */
 const SHOWN = 200;
@@ -282,5 +284,49 @@ export async function setUserActive(
   await db
     .prepare('UPDATE users SET active = ? WHERE tg_id = ?')
     .bind(active ? 1 : 0, tgId)
+    .run();
+}
+
+/**
+ * Перевісити заявку на майстра — або зняти виконавця зовсім.
+ *
+ * `actor` стає той, хто перевішує: він змінив стан. `assignee` —
+ * обраний. Саме заради цієї різниці вони й розділені.
+ *
+ * Заявка в стані «Нова» переходить у «В роботі»: `new` означає «ніхто
+ * ще не дивився», а призначена вже має господаря. Це єдиний спосіб
+ * туди потрапити, крім кнопки «В роботу» в групі — запис на час стану
+ * не міняє.
+ */
+export async function assignLead(
+  db: D1Database,
+  id: number,
+  assignee: { id: string; name: string } | null,
+  by: { id: string; name: string }
+): Promise<void> {
+  const lead = await getLead(db, id);
+  if (!lead) return;
+
+  const toWork = assignee !== null && lead.status === 'new';
+
+  await db
+    .prepare(
+      `UPDATE leads
+          SET assignee_id = ?,
+              assignee_name = ?,
+              actor_id = ?,
+              actor_name = ?,
+              ${toWork ? "prev_status = status, status = 'in_work'," : ''}
+              updated_at = ?
+        WHERE id = ?`
+    )
+    .bind(
+      assignee?.id ?? null,
+      assignee?.name ?? null,
+      by.id,
+      by.name,
+      new Date().toISOString(),
+      id
+    )
     .run();
 }

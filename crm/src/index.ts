@@ -14,6 +14,7 @@ import { loginPage } from './views/login';
 import type { Viewer } from './views/layout';
 import {
   applyChange,
+  assignLead,
   createLead,
   getLead,
   historyByPhone,
@@ -235,7 +236,10 @@ app.get('/lead/:id', async (c) => {
   const lead = id && (await getLead(c.env.DB, id));
   if (!lead) return c.notFound();
   const history = await historyByPhone(c.env.DB, lead.phone);
-  return c.html(leadPage(lead, history, c.get('viewer')));
+  const masters = (await listUsers(c.env.DB))
+    .filter((u) => u.active === 1)
+    .map((u) => ({ tg_id: u.tg_id, name: u.name }));
+  return c.html(leadPage(lead, history, c.get('viewer'), masters));
 });
 
 app.post('/lead/:id/appoint', async (c) => {
@@ -421,6 +425,36 @@ app.post('/lead/:id/undo', async (c) => {
     actor_name: viewer.name,
   });
 
+  c.executionCtx.waitUntil(syncCard(c.env, id));
+  return c.redirect(`/lead/${id}`);
+});
+
+app.post('/lead/:id/assign', async (c) => {
+  const id = leadId(c.req.param('id'));
+  const lead = id && (await getLead(c.env.DB, id));
+  if (!id || !lead) return c.notFound();
+
+  const form = await c.req.formData();
+  const picked = String(form.get('assignee') ?? '');
+  const viewer = c.get('viewer');
+
+  /* Порожнє значення — «зняти виконавця». Стану при цьому не чіпаємо:
+     заявка, яку вже брали, не стає знову новою — історія важливіша за
+     охайність списку. */
+  let assignee: { id: string; name: string } | null = null;
+
+  if (picked) {
+    const found = (await listUsers(c.env.DB)).find((u) => u.tg_id === picked && u.active === 1);
+    if (!found) {
+      return c.html(
+        problemPage(viewer, id, 'Такого майстра немає', 'Оберіть когось зі списку активних.'),
+        400
+      );
+    }
+    assignee = { id: found.tg_id, name: found.name };
+  }
+
+  await assignLead(c.env.DB, id, assignee, { id: viewer.tg_id, name: viewer.name });
   c.executionCtx.waitUntil(syncCard(c.env, id));
   return c.redirect(`/lead/${id}`);
 });

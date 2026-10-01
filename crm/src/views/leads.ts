@@ -67,6 +67,7 @@ export function leadsPage(rows: LeadFull[], filter: ListFilter, viewer: Viewer) 
                 <div class="card__meta">
                   ${[r.car, r.age].filter(Boolean).join(' · ')}
                   ${r.appointment_at ? html`<br />Запис: ${dateTime(r.appointment_at)}` : ''}
+                  ${r.assignee_name ? html`<br />Майстер: ${r.assignee_name}` : ''}
                 </div>
               </a>
               <div class="row" style="margin-top: .6rem">

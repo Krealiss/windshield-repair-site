@@ -19,7 +19,12 @@ import { REASONS } from '../../../shared/card';
  * уточнення: сума для заявки, закритої кнопкою в боті, і причина для
  * відмови без причини. Вони пишуть поля, а не переходять у стан.
  */
-export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
+export function leadPage(
+  lead: LeadFull,
+  history: LeadFull[],
+  viewer: Viewer,
+  masters: { tg_id: string; name: string }[]
+) {
   const notes = (lead.notes ?? '').split('\n').filter((n) => n.trim());
   const isFinal = lead.status === 'done' || lead.status === 'declined';
   const about = [lead.car, lead.age].filter(Boolean).join(' · ');
@@ -60,6 +65,19 @@ export function leadPage(lead: LeadFull, history: LeadFull[], viewer: Viewer) {
               ${lead.work_note ?? ''}
             </p>`
         : ''}
+
+      <h2>Майстер</h2>
+      <form method="post" action="/lead/${lead.id}/assign">
+        <select name="assignee" aria-label="Майстер">
+          <option value="">— ніхто —</option>
+          ${masters.map(
+            (m) => html`<option value="${m.tg_id}" ${lead.assignee_id === m.tg_id ? 'selected' : ''}>
+              ${m.name}
+            </option>`
+          )}
+        </select>
+        <button type="submit" class="btn btn--wide" style="margin-top:.5rem">Призначити</button>
+      </form>
 
       ${isFinal
         ? ''
