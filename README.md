@@ -435,9 +435,11 @@ npm run telegram:webhook -- https://avtoskloua.com/api/tg
 живуть попередження про фото — інакше перший же натиск кнопки стирав би
 їх із картки), `0003_decline_reason.sql` (колонка `decline_reason`),
 `0004_crm.sql` (поля про виконану роботу й таблиця `users` для CRM),
-`0005_source.sql` (звідки прийшла заявка: сайт чи дзвінок) і
+`0005_source.sql` (звідки прийшла заявка: сайт чи дзвінок),
 `0006_assignee.sql` (виконавець заявки — колонки `assignee_id` і
-`assignee_name`; наявні рядки переносяться з `actor`).
+`assignee_name`; наявні рядки переносяться з `actor`) і
+`0007_assignee_backfill.sql` (виконавець для рядків «в роботі» й
+«виконано», яким `0006` його не дала).
 
 **Перед першим розгортанням треба створити базу й застосувати всі
 міграції.** Інакше кожна заявка приходитиме з рядком
@@ -452,6 +454,7 @@ npx wrangler d1 execute leads --remote --file=migrations/0003_decline_reason.sql
 npx wrangler d1 execute leads --remote --file=migrations/0004_crm.sql
 npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 npx wrangler d1 execute leads --remote --file=migrations/0006_assignee.sql
+npx wrangler d1 execute leads --remote --file=migrations/0007_assignee_backfill.sql
 ```
 
 Імʼя бази — `leads` (`avtoskloua` — це імʼя воркера, не бази; воно стоїть
@@ -621,7 +624,7 @@ npm run crm:dev                             # http://localhost:8789
 
 Міграції накочуються так само, як для сайту (див. «Telegram-бот»): CRM
 стає на ті самі локальні таблиці. Перш ніж запускати CRM, переконайтеся,
-що застосовано все до `0006` включно.
+що застосовано все до `0007` включно.
 
 Ще одна деталь того самого роду: `npm run crm:seed-owner` (без
 `--remote`) ходить у локальну базу через `wrangler d1 execute`, тож
@@ -802,6 +805,7 @@ npx wrangler d1 execute leads --remote --file=migrations/0003_decline_reason.sql
 npx wrangler d1 execute leads --remote --file=migrations/0004_crm.sql
 npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 npx wrangler d1 execute leads --remote --file=migrations/0006_assignee.sql
+npx wrangler d1 execute leads --remote --file=migrations/0007_assignee_backfill.sql
 ```
 
 Чому саме так: CRM читає колонки, яких до `0004` немає

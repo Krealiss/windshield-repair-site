@@ -148,27 +148,10 @@ export type Patch = {
   decline_reason?: string | null;
   actor_id?: string;
   actor_name?: string;
+  assignee_id?: string | null;
+  assignee_name?: string | null;
 };
 
-/**
- * Єдиний шлях зміни заявки.
- *
- * Зміна стану веде себе так само, як у боті: `AND status <> ?` тримає
- * інваріант prev_status <> status, тож «Повернути» завжди має куди
- * вести. Повторна та сама зміна нічого не переписує.
- *
- * decline_reason скидається на кожній зміні стану: у свіжій відмові
- * причини ще немає, при поверненні вона стає неправдою, а при повторній
- * відмові лишилася б стара.
- *
- * **Інваріант: `amount`, `work_note` і `closed_at` значать щось лише
- * при `status = 'done'`.** «Повернути» їх не чистить навмисно — щоб
- * помилкове повернення не з'їло суму, яку оператор уже вписав, — тож у
- * поверненої чи потім відмовленої заявки там може лежати стара правда.
- * Усі три місця показу (картка заявки, рядок клієнта, підсумок клієнта)
- * читають суму тільки під `status === 'done'`, і майбутні звіти мусять
- * робити так само: `SELECT sum(amount)` без цієї умови завищить дохід.
- */
 /**
  * Заводить заявку, яку оператор записав зі слів клієнта по телефону.
  *
@@ -213,6 +196,29 @@ export async function createLead(
   return Number(res.meta?.last_row_id ?? 0);
 }
 
+/**
+ * Зміна стану й полів заявки.
+ *
+ * Стан міняють два місця: цей запит і `assignLead` — той веде «Нову» в
+ * «В роботі» й більше нікуди. Усе інше проходить тут.
+ *
+ * Зміна стану веде себе так само, як у боті: `AND status <> ?` тримає
+ * інваріант prev_status <> status, тож «Повернути» завжди має куди
+ * вести, а `status NOT IN ('done','declined')` не дає зробити фінальним
+ * ще й prev_status. Повторна та сама зміна нічого не переписує.
+ *
+ * decline_reason скидається на кожній зміні стану: у свіжій відмові
+ * причини ще немає, при поверненні вона стає неправдою, а при повторній
+ * відмові лишилася б стара.
+ *
+ * **Інваріант: `amount`, `work_note` і `closed_at` значать щось лише
+ * при `status = 'done'`.** «Повернути» їх не чистить навмисно — щоб
+ * помилкове повернення не з'їло суму, яку оператор уже вписав, — тож у
+ * поверненої чи потім відмовленої заявки там може лежати стара правда.
+ * Усі три місця показу (картка заявки, рядок клієнта, підсумок клієнта)
+ * читають суму тільки під `status === 'done'`, і майбутні звіти мусять
+ * робити так само: `SELECT sum(amount)` без цієї умови завищить дохід.
+ */
 export async function applyChange(
   db: D1Database,
   id: number,
@@ -233,7 +239,15 @@ export async function applyChange(
     if (!hasReason) sets.push('decline_reason = NULL');
   }
 
-  for (const field of ['appointment_at', 'closed_at', 'amount', 'work_note', 'decline_reason'] as const) {
+  for (const field of [
+    'appointment_at',
+    'closed_at',
+    'amount',
+    'work_note',
+    'decline_reason',
+    'assignee_id',
+    'assignee_name',
+  ] as const) {
     if (patch[field] !== undefined) {
       sets.push(`${field} = ?`);
       bind.push(patch[field]);
@@ -252,6 +266,13 @@ export async function applyChange(
   if (patch.status) {
     where.push('status <> ?');
     bind.push(patch.status);
+  }
+  /* Те саме, що в боті: у фінал лише з живого стану, і вирішує сам
+     UPDATE. Сторожі в маршрутах читають рядок до `await formData()`, і
+     за цей час кнопка в групі могла заявку закрити. Інакше вийшло б
+     status = 'done' при prev_status = 'declined' — обидва фінальні. */
+  if (patch.status === 'done' || patch.status === 'declined') {
+    where.push("status NOT IN ('done', 'declined')");
   }
 
   await db
@@ -312,7 +333,8 @@ export async function assignLead(
      бачать однаковий старий стан. */
   const setWork = assignee
     ? `prev_status = CASE WHEN status = 'new' THEN status ELSE prev_status END,
-              status = CASE WHEN status = 'new' THEN 'in_work' ELSE status END,`
+              status = CASE WHEN status = 'new' THEN 'in_work' ELSE status END,
+              decline_reason = CASE WHEN status = 'new' THEN NULL ELSE decline_reason END,`
     : '';
 
   await db

@@ -34,6 +34,7 @@ import { html } from 'hono/html';
 import { syncCard } from './sync';
 import { clean, type Status } from '../../shared/card';
 import { fromLocalInput, kyivDayBounds, toKop, toPhone } from './format';
+import { crmViewer, findUser } from '../../shared/users';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -100,9 +101,7 @@ app.get('/auth', async (c) => {
     return c.html(loginPage(BOT_NAME, 'Підпис Telegram не підтвердився.'), 403);
   }
 
-  const row = await c.env.DB.prepare('SELECT tg_id, active, role FROM users WHERE tg_id = ?')
-    .bind(String(params.id))
-    .first<{ tg_id: string; active: number; role: string }>();
+  const row = await findUser(c.env.DB, String(params.id));
 
   if (!row || row.active !== 1) {
     return c.html(loginPage(BOT_NAME, 'Цей обліковий запис не має доступу.'), 403);
@@ -149,13 +148,7 @@ app.use('*', async (c, next) => {
   const tgId = await readSession(getCookie(c, COOKIE), c.env.SESSION_SECRET);
   if (!tgId) return c.redirect('/login');
 
-  // Роль перевіряється на кожному запиті, а не лише при вході: якщо
-  // власник колись знизить комусь роль, сесія мусить померти негайно
-  const viewer = await c.env.DB.prepare(
-    "SELECT tg_id, name, role FROM users WHERE tg_id = ? AND active = 1 AND role = 'owner'"
-  )
-    .bind(tgId)
-    .first<Viewer>();
+  const viewer = await crmViewer(c.env.DB, tgId);
 
   if (!viewer) {
     deleteCookie(c, COOKIE, { path: '/' });
@@ -436,10 +429,13 @@ app.post('/lead/:id/undo', async (c) => {
   const target: Status = p && p !== 'done' && p !== 'declined' ? p : 'new';
 
   const viewer = c.get('viewer');
+  /* Повернення в «Нову» знімає виконавця — так само, як у боті:
+     «Нова» означає «нічия». Повернення в «В роботі» його лишає. */
   await applyChange(c.env.DB, id, {
     status: target,
     actor_id: viewer.tg_id,
     actor_name: viewer.name,
+    ...(target === 'new' ? { assignee_id: null, assignee_name: null } : {}),
   });
 
   c.executionCtx.waitUntil(syncCard(c.env, id));
@@ -461,14 +457,25 @@ app.post('/lead/:id/assign', async (c) => {
   let assignee: { id: string; name: string } | null = null;
 
   if (picked) {
-    const found = (await listUsers(c.env.DB)).find((u) => u.tg_id === picked && u.active === 1);
-    if (!found) {
+    /* Поточний виконавець проходить навіть зі знятим доступом або
+       зовсім без рядка в `users`: GET лишає його у списку вибраним, і
+       «Призначити», яким нічого не змінили, не має впиратися в 400 на
+       імені, яке CRM сама ж і показала. */
+    const same = picked === lead.assignee_id;
+    const found = (await listUsers(c.env.DB)).find(
+      (u) => u.tg_id === picked && (u.active === 1 || same)
+    );
+
+    if (!found && !same) {
       return c.html(
         problemPage(viewer, id, 'Такого майстра немає', 'Оберіть когось зі списку активних.'),
         400
       );
     }
-    assignee = { id: found.tg_id, name: found.name };
+
+    assignee = found
+      ? { id: found.tg_id, name: found.name }
+      : { id: picked, name: lead.assignee_name ?? picked };
   }
 
   await assignLead(c.env.DB, id, assignee, { id: viewer.tg_id, name: viewer.name });

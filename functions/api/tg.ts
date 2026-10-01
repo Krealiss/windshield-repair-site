@@ -196,6 +196,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       id: string;
       data?: string;
       from?: { id?: number; first_name?: string; username?: string };
+      message?: { chat?: { id?: number } };
     };
     message?: {
       message_id?: number;
@@ -265,9 +266,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
      доставку на будь-який код, крім 200, тож один збій перетворився б на
      нескінченні ретраї того самого натискання. Відповідаємо 200 і
      просимо людину натиснути ще раз. */
+  /* Заводимо лише з групи власника. Поза нею дію виконує той, хто вже
+     заведений, а нового не з'являється: інакше кнопка, надіслана
+     колись в особистий чат клієнта, зробила б клієнта майстром. Коли
+     TELEGRAM_CHAT_ID не заданий (локальний стенд), межі немає. */
+  const inOwnerChat =
+    !env.TELEGRAM_CHAT_ID || String(cq.message?.chat?.id ?? '') === env.TELEGRAM_CHAT_ID;
+
   let user: Awaited<ReturnType<typeof userForAction>>;
   try {
-    user = await userForAction(db, fromId, who);
+    if (inOwnerChat) {
+      user = await userForAction(db, fromId, who);
+    } else {
+      const known = await findUser(db, fromId);
+      user = known && known.active === 1 ? known : null;
+    }
   } catch {
     // Без значень: лише що саме не вдалося, інакше в журнал потрапили б дані людини
     console.error('tg: не вдалося перевірити доступ до дій бота (таблиця users)');
@@ -458,6 +471,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        воно не змінює, чия це робота — його може натиснути будь-хто.
        Саме заради цієї різниці actor і assignee — окремі поля. */
     const takes = action === 'work';
+    /* Повернення в «Нову» знімає виконавця: «Нова» означає «нічия», і
+       саме на цьому стоїть призначення в CRM. Повернення в «В роботі»
+       (із «Виконано») виконавця не чіпає — робота лишається тією ж. */
+    const released = target === 'new';
+    /* У фінал ведемо лише з живого стану, і вирішує це сам UPDATE.
+       Перевірки вище стоять на рядку, прочитаному раніше, а за цей час
+       CRM могла заявку вже закрити — тоді фінальними стали б і status,
+       і prev_status, і «Повернути» загубило б справжній попередній
+       стан. На законному шляху умова нічого не змінює. */
+    const toFinal = FINAL.includes(target);
     const written = await db
       .prepare(
         `UPDATE leads
@@ -465,9 +488,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                 status = ?,
                 actor_id = ?,
                 actor_name = ?,
-                decline_reason = NULL,${takes ? '\n                assignee_id = ?,\n                assignee_name = ?,' : ''}${closing ? '\n                closed_at = ?,' : ''}
+                decline_reason = NULL,${takes ? '\n                assignee_id = ?,\n                assignee_name = ?,' : ''}${released ? '\n                assignee_id = NULL,\n                assignee_name = NULL,' : ''}${closing ? '\n                closed_at = ?,' : ''}
                 updated_at = ?
-          WHERE id = ? AND status <> ?`
+          WHERE id = ? AND status <> ?${toFinal ? " AND status NOT IN ('done', 'declined')" : ''}`
       )
       .bind(
         target,
@@ -495,7 +518,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       actor_name: who,
       // Виконавець міняється лише кнопкою «В роботу»; інакше лишається,
       // що був — так само, як в UPDATE вище
-      assignee_name: takes ? who : row.assignee_name,
+      assignee_name: takes ? who : released ? null : row.assignee_name,
       decline_reason: null,
     });
 

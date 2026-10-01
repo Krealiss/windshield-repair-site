@@ -1,9 +1,11 @@
 /**
- * Хто має право діяти із заявками.
+ * Хто має право діяти із заявками й хто — заходити в CRM.
  *
- * Спільний для бота (`functions/api/tg.ts`) і CRM: правило «знятий
- * доступ не воскресає» мусить бути одне на два інтерфейси, інакше одна
- * копія колись дозволить те, що друга забороняє.
+ * Спільний для бота (`functions/api/tg.ts`) і CRM (`crm/src/index.ts`):
+ * правила доступу мусять лежати одним місцем на два інтерфейси, інакше
+ * одна копія колись дозволить те, що друга забороняє. Бот кличе
+ * `userForAction`, CRM — `findUser` на вході і `crmViewer` на кожному
+ * запиті.
  *
  * Тека починається не з підкреслення, але лежить поза `functions/`, і
  * Pages її збирає — це перевірено в попередньому куску.
@@ -61,4 +63,27 @@ export async function userForAction(
      рядок із active = 0. */
   const created = await findUser(db, tgId);
   return created?.active === 1 ? created : null;
+}
+
+/**
+ * Хто може бути в CRM — або null.
+ *
+ * Двері окремі від кнопок у групі: кнопка міняє стан однієї заявки, яку
+ * людина й так бачить у чаті, а CRM показує всю базу — імена, телефони,
+ * історію, суми. Тому заведення тут немає взагалі, лише роль `owner` і
+ * живий доступ.
+ *
+ * Читається на кожному запиті, а не лише при вході: кука живе 30 днів,
+ * сховища сесій немає, і скасувати доступ інакше нічим.
+ */
+export async function crmViewer(
+  db: D1Database,
+  tgId: string
+): Promise<{ tg_id: string; name: string; role: string } | null> {
+  return db
+    .prepare(
+      "SELECT tg_id, name, role FROM users WHERE tg_id = ? AND active = 1 AND role = 'owner'"
+    )
+    .bind(tgId)
+    .first<{ tg_id: string; name: string; role: string }>();
 }

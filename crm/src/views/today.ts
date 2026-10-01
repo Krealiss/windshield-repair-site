@@ -25,7 +25,11 @@ export function todayPage(rows: LeadFull[], viewer: Viewer) {
                   <span class="num">#${r.id}</span>
                 </div>
                 <div class="card__name">${r.name}</div>
-                <div class="card__meta">${r.car ?? ''}</div>
+                <div class="card__meta">
+                  ${r.car ?? ''}${r.assignee_name
+                    ? html`${r.car ? html`<br />` : ''}Майстер: ${r.assignee_name}`
+                    : ''}
+                </div>
               </a>
               <div class="row" style="margin-top: .6rem">
                 <a class="btn" href="tel:${r.phone}">📞 ${r.phone}</a>
