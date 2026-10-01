@@ -137,6 +137,24 @@ app.use('*', async (c, next) => {
   return next();
 });
 
+/**
+ * Межі київської доби для дати з поля `<input type="date">`.
+ *
+ * Сміття й порожнє значення дають null, тобто «межі не задані» — так
+ * фільтр і поводився досі. Без перевірки формату `new Date('абракадабра')`
+ * привів би kyivDayBounds до RangeError, тобто до 500 замість порожнього
+ * списку.
+ *
+ * Полудень UTC — безпечна точка всередині потрібної доби: київський час
+ * випереджає UTC на 2–3 години, тож календарна дата та сама.
+ */
+function kyivDay(date: string): { from: string; to: string } | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const noon = new Date(`${date}T12:00:00.000Z`);
+  if (Number.isNaN(noon.getTime())) return undefined;
+  return kyivDayBounds(noon);
+}
+
 app.get('/', async (c) => {
   const url = new URL(c.req.url);
   const q = url.searchParams.get('q') ?? '';
@@ -144,14 +162,20 @@ app.get('/', async (c) => {
   const from = url.searchParams.get('from') ?? '';
   const to = url.searchParams.get('to') ?? '';
 
-  /* Поле date дає «2026-09-30», а в базі час у UTC з часом доби. «До»
-     включно, тож беремо кінець дня, інакше заявки самого цього дня
-     випали б із вибірки. */
+  /* Поле date дає «2026-09-30», а в базі час у UTC. Межі рахуємо за
+     київською добою, не за UTC: заявка о 01:00 за Києвом — це ще
+     попередній день за UTC, і при межах за UTC вона потрапила б у
+     «чуже» число. Власник, відфільтрувавши «сьогодні», побачив би інший
+     набір, ніж у «Сьогодні», який уже рахує по-київськи.
+
+     `to` — кінець доби **не включно** (початок наступної): дата кінця
+     київської доби не має фіксованої тривалості, бо двічі на рік доба
+     триває 23 або 25 годин. */
   const rows = await listLeads(c.env.DB, {
     q: q || undefined,
     status: status || undefined,
-    from: from ? `${from}T00:00:00.000Z` : undefined,
-    to: to ? `${to}T23:59:59.999Z` : undefined,
+    from: kyivDay(from)?.from,
+    to: kyivDay(to)?.to,
   });
 
   return c.html(leadsPage(rows, { q, status, from, to }, c.get('viewer')));
