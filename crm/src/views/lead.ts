@@ -69,7 +69,7 @@ export function leadPage(
       <h2>Майстер</h2>
       <p class="${lead.assignee_name ? 'panel' : 'muted'}">
         ${lead.assignee_name
-          ? html`Робить <strong>${lead.assignee_name}</strong>`
+          ? html`Майстер: <strong>${lead.assignee_name}</strong>`
           : 'Виконавця немає — заявку ще ніхто не взяв.'}
       </p>
       <form method="post" action="/lead/${lead.id}/assign">

@@ -239,12 +239,23 @@ app.get('/lead/:id', async (c) => {
   /* Поточний виконавець лишається у списку, навіть якщо доступ йому вже
      знято: інакше він зникав би з вибору, обраним ставало б «— ніхто —»,
      і одне випадкове «Призначити» мовчки стирало б виконавця. */
-  const masters = (await listUsers(c.env.DB))
+  const people = await listUsers(c.env.DB);
+  const masters = people
     .filter((u) => u.active === 1 || u.tg_id === lead.assignee_id)
     .map((u) => ({
       tg_id: u.tg_id,
       name: u.active === 1 ? u.name : `${u.name} (доступ знято)`,
     }));
+
+  /* Виконавця може не бути в `users` зовсім: міграція 0006 перенесла
+     його з `actor`, а до появи таблиці кнопки натискали люди, яких ніхто
+     не заводив. Без цього рядка він зник би зі списку так само мовчки. */
+  if (lead.assignee_id && !people.some((u) => u.tg_id === lead.assignee_id)) {
+    masters.push({
+      tg_id: lead.assignee_id,
+      name: `${lead.assignee_name ?? lead.assignee_id} (не в CRM)`,
+    });
+  }
   return c.html(leadPage(lead, history, c.get('viewer'), masters));
 });
 
