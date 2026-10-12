@@ -71,9 +71,23 @@ export async function loadSite() {
     (g) => g.data.published && g.data.before && g.data.after
   );
 
-  const reviews = (await getCollection('reviews')).sort(
-    (a, b) => b.data.date.getTime() - a.data.date.getTime()
-  );
+  /* Демонстраційні відгуки видно лише в `astro dev`. У будь-якій
+     збірці — і продакшн, і прев'ю — їх немає ні в блоці, ні в розмітці.
+     Вигаданий відгук на комерційному сайті вводить покупця в оману, тож
+     межа між «лежить у файлах» і «видно людям» проходить тут, у коді, а
+     не в голові того, хто викладає.
+
+     Чому вони взагалі лежать у теці: локально видно верстку блоку й те,
+     як чотири зірки стоять поруч із пʼятьма, а новий відгук є з чого
+     скопіювати.
+
+     Раніше межею була впала збірка — продакшн не збирався, поки лежав
+     бодай один demo-відгук. Але це спиняло розгортання цілого сайту
+     через файли, які на людях і не мали з'являтися. Тепер фільтр тут, і
+     збірка проходить; валідатор про них далі попереджає. */
+  const reviews = (await getCollection('reviews'))
+    .filter((r) => !(import.meta.env.PROD && r.data.demo))
+    .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
   const faq = (await getCollection('faq')).sort((a, b) => a.data.order - b.data.order);
 
