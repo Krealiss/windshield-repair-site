@@ -29,6 +29,7 @@ import { clientPage } from './views/client';
 import { todayPage } from './views/today';
 import { newLeadPage } from './views/new';
 import { usersPage } from './views/users';
+import { helpPage } from './views/help';
 import { layout } from './views/layout';
 import { html } from 'hono/html';
 import { syncCard } from './sync';
@@ -138,12 +139,20 @@ app.post('/logout', (c) => {
   return c.redirect('/login');
 });
 
+// Довідка для власника й майстрів. Без сесії — див. середину нижче
+app.get('/dovidka', (c) => c.html(helpPage()));
+
 /* Усе, крім входу й перевірки живості, вимагає сесії. active
    перевіряється щоразу, тож знятий доступ діє негайно, не чекаючи
    строку куки. */
 app.use('*', async (c, next) => {
   const path = new URL(c.req.url).pathname;
-  if (path === '/login' || path === '/auth' || path === '/health') return next();
+  /* Довідка відкрита без входу: кнопки під карткою тиснуть майстри, а
+     в CRM вони не заходять. Інструкція, яку бачить лише власник,
+     пояснювала б кнопки тому, хто їх і так знає. Даних клієнтів на
+     сторінці немає, у розмітці стоїть noindex. */
+  if (path === '/login' || path === '/auth' || path === '/health' || path === '/dovidka')
+    return next();
 
   const tgId = await readSession(getCookie(c, COOKIE), c.env.SESSION_SECRET);
   if (!tgId) return c.redirect('/login');

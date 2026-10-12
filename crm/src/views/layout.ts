@@ -178,6 +178,9 @@ const STYLE = `
   }
   .empty { color: var(--muted); text-align: center; padding: 2rem .5rem; }
 
+  footer { padding: 0 .75rem 2rem; text-align: center; }
+  footer a { color: var(--muted); font-size: .9rem; }
+
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 `;
 
@@ -186,6 +189,10 @@ const STYLE = `
    приводити кожен виклик */
 type Body = HtmlEscapedString | Promise<HtmlEscapedString>;
 
+/* Довідка — у підвалі, а не в шапці. Пʼять пунктів у шапці вже займають
+   усю ширину на 375 пікселях (виміряно), шостий переніс би рядок і
+   зробив би шапку вдвічі вищою заради посилання, яке відкривають раз
+   на місяць. */
 export function layout(title: string, body: Body, viewer?: Viewer, current?: string) {
   return html`<!doctype html>
 <html lang="uk">
@@ -211,6 +218,9 @@ export function layout(title: string, body: Body, viewer?: Viewer, current?: str
         </header>`
       : ''}
     <main>${body}</main>
+    ${current === 'help'
+      ? ''
+      : html`<footer><a href="/dovidka">Довідка</a></footer>`}
   </body>
 </html>`;
 }

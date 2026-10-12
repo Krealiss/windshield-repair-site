@@ -16,6 +16,12 @@ export function loginPage(botName: string, error?: string) {
         data-telegram-login="${botName}"
         data-size="large"
         data-auth-url="/auth"
-        data-request-access="write"></script>`)}`
+        data-request-access="write"></script>`)}
+      <!-- Посилання на довідку саме тут: майстер, який спробує зайти в
+           CRM і отримає відмову, лишається на цій сторінці — і звідси ж
+           може прочитати, що робити кнопками в групі -->
+      <p class="muted" style="margin-top: 2rem">
+        <a href="/dovidka">Як користуватися системою</a>
+      </p>`
   );
 }
