@@ -74,7 +74,11 @@ app.get('/health', (c) => c.text('ok'));
  * технічна перевірка живості без даних, і вона зареєстрована вище.
  */
 app.use('*', async (c, next) => {
-  if (new URL(c.req.url).pathname === '/health') return next();
+  /* /health — технічна перевірка живості без даних. /dovidka —
+     статична сторінка, якій секрети не потрібні взагалі: інструкція
+     мусить читатися саме тоді, коли щось налаштовано не так. */
+  const open = new URL(c.req.url).pathname;
+  if (open === '/health' || open === '/dovidka') return next();
 
   const missing = missingSecret(c.env);
   if (missing) {
