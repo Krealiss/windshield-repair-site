@@ -24,6 +24,23 @@ export function toKop(input: string): number | null {
 
 export const dateTime = (iso: string | null | undefined) => (iso ? kyivShort(iso) : '');
 
+/**
+ * «09:30» — лише час, без дати.
+ *
+ * Для ранкового зведення: усі рядки в ньому про один день, і дата в
+ * кожному рядку була б шумом, крізь який шукають потрібну годину.
+ */
+export function kyivTime(iso: string): string {
+  const parts = new Intl.DateTimeFormat('uk-UA', {
+    timeZone: 'Europe/Kyiv',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const v = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${v('hour')}:${v('minute')}`;
+}
+
 /** Скільки мілісекунд київський час випереджає UTC у даний момент */
 function kyivOffsetMs(instant: number): number {
   const parts = new Intl.DateTimeFormat('en-US', {

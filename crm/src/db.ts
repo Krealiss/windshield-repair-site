@@ -139,6 +139,20 @@ export async function listDay(db: D1Database, dayStart: string, dayEnd: string) 
   return res.results ?? [];
 }
 
+/**
+ * Скільки заявок ніхто не взяв довше, ніж `before`.
+ *
+ * Лише `new`: заявка в роботі може чекати скло тижнями, і це не
+ * проблема. Проблема — та, на яку ніхто не глянув.
+ */
+export async function staleNewCount(db: D1Database, before: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT count(*) AS n FROM leads WHERE status = 'new' AND created_at < ?")
+    .bind(before)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
 export type Patch = {
   status?: Status;
   appointment_at?: string | null;

@@ -30,6 +30,7 @@ import { todayPage } from './views/today';
 import { newLeadPage } from './views/new';
 import { usersPage } from './views/users';
 import { helpPage } from './views/help';
+import { sendDigest } from './digest';
 import { layout } from './views/layout';
 import { html } from 'hono/html';
 import { syncCard } from './sync';
@@ -595,4 +596,26 @@ app.post('/users/:tgId/active', async (c) => {
   return c.redirect('/users');
 });
 
-export default app;
+/**
+ * Cron: ранкове зведення в групу.
+ *
+ * Два запуски на добу — 05:00 і 06:00 UTC, — а працює той, що припав
+ * на 8 ранку в Києві. Київський час випереджає UTC на дві години
+ * взимку і на три влітку, тож одна фіксована година UTC двічі на рік
+ * уїжджала б на годину. Перевірка тут, а не ежечасний cron: двадцять
+ * чотири запуски заради одного — марно.
+ */
+async function scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+  const hour = Number(
+    new Intl.DateTimeFormat('uk-UA', {
+      timeZone: 'Europe/Kyiv',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date())
+  );
+  if (hour !== 8) return;
+
+  ctx.waitUntil(sendDigest(env));
+}
+
+export default { fetch: app.fetch, scheduled };
