@@ -540,8 +540,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .bind(id)
         .first<{ id: number; phone: string; status: string; amount: number | null }>();
       if (fresh) await syncCashback(db, fresh);
-    } catch {
-      console.error(`tg: журнал кешбеку не синхронізовано (заявка #${id})`);
+    } catch (err) {
+      console.error(
+        `tg: журнал кешбеку не синхронізовано (заявка #${id}): ${err instanceof Error ? err.name : 'unknown'}`
+      );
     }
 
     await drawCard(db, api, env.TELEGRAM_CHAT_ID, {
