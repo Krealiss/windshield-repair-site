@@ -34,6 +34,7 @@
  *   TELEGRAM_CHAT_ID — запасний адресат картки-замінника й межа, у якому
  *     чаті натискач стає майстром
  */
+import { syncCashback } from '../../shared/cashback';
 import { clean, REASONS, type Status } from '../../shared/card';
 import { call, drawCard, telegramApi, type NotifyRow } from '../../shared/notify';
 import { findUser, userForAction } from '../../shared/users';
@@ -517,6 +518,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return okEmpty();
     }
     changed = true;
+
+    /* Кешбек. «Виконано» і «Повернути» міняють, скільки заявці належить,
+       хоч суму бот не чіпає ніколи. Синхронізація йде до перемальовування
+       картки: картка має малюватися вже з актуальним журналом.
+
+       Рядок перечитуємо заново, а не збираємо з `row` із підміною стану:
+       `row` прочитано до запису, і за цей час CRM могла вписати суму.
+       Журнал рахує з того, що в базі зараз. Зайвий читальний запит —
+       прийнятна ціна.
+
+       Власний try: збій тут не мусить ні валити обробник (Telegram
+       повторював би доставку на будь-який код, крім 200), ні забирати в
+       людини перемальовану картку — стан уже змінено. Повторне натискання
+       тут не допоможе (воно впреться в «вже в цьому стані»), тож у журнал
+       іде номер заявки, за яким можна знайти й виправити розбіжність;
+       наступна зміна заявки її й так вирівняє. Без значень з рядка. */
+    try {
+      const fresh = await db
+        .prepare('SELECT id, phone, status, amount FROM leads WHERE id = ?')
+        .bind(id)
+        .first<{ id: number; phone: string; status: string; amount: number | null }>();
+      if (fresh) await syncCashback(db, fresh);
+    } catch {
+      console.error(`tg: журнал кешбеку не синхронізовано (заявка #${id})`);
+    }
 
     await drawCard(db, api, env.TELEGRAM_CHAT_ID, {
       ...row,

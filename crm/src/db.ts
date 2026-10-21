@@ -1,5 +1,6 @@
 import type { LeadRow, Status } from '../../shared/card';
 import type { UserRow } from '../../shared/users';
+import { syncCashback } from '../../shared/cashback';
 
 export type LeadFull = LeadRow & {
   chat_id: string | null;
@@ -232,6 +233,15 @@ export async function createLead(
  * Усі три місця показу (картка заявки, рядок клієнта, підсумок клієнта)
  * читають суму тільки під `status === 'done'`, і майбутні звіти мусять
  * робити так само: `SELECT sum(amount)` без цієї умови завищить дохід.
+ *
+ * **Кешбек.** Наприкінці журнал кешбеку приводиться у відповідність до
+ * заявки (`syncCashback`) — тут, а не в кожному маршруті, бо всі зміни
+ * стану й суми з CRM проходять саме через цю функцію. Синхронізація
+ * бере рядок, прочитаний `getLead` уже після запису, а не патч і не
+ * те, що було прочитано на початку: знімок, який встиг застаріти, лишив
+ * би журнал хибним до наступної зміни заявки. Збій синхронізації не
+ * ковтаємо: запис заявки вже пройшов, і тихий збій лишив би журнал
+ * розійденим із нею непомітно; краще видима помилка.
  */
 export async function applyChange(
   db: D1Database,
@@ -294,7 +304,9 @@ export async function applyChange(
     .bind(...bind)
     .run();
 
-  return getLead(db, id);
+  const lead = await getLead(db, id);
+  if (lead) await syncCashback(db, lead);
+  return lead;
 }
 
 /** Усі люди, найстаріші зверху: порядок появи читається як історія */
@@ -342,7 +354,15 @@ export async function assignLead(
   assignee: { id: string; name: string } | null,
   by: { id: string; name: string }
 ): Promise<void> {
-  /* Перехід вирішує сам SQL, а не прочитаний перед цим стан: між
+  /* Кешбек тут не синхронізується — і це не пропуск. Стан ця функція
+     міняє лише `new → in_work`, а заявці без закриття кешбек не
+     належить (див. earnedKop у shared/cashback.ts): журнал до і після
+     цього переходу однаковий. Суму вона не чіпає взагалі. Те саме
+     стосується createLead: нова заявка стоїть у `new`, їй нема за що
+     нараховувати. Якщо колись assignLead навчиться міняти ще й інші
+     стани, синхронізацію сюди доведеться додати.
+
+     Перехід вирішує сам SQL, а не прочитаний перед цим стан: між
      читанням і записом майстер у групі міг заявку закрити, і тоді
      запис поставив би status = 'in_work' при prev_status = 'done',
      зламавши інваріант «prev_status ніколи не фінальний». SQLite
