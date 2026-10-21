@@ -7,6 +7,7 @@
  * траплялося з іконками соцмереж і з розбором .dev.vars.
  */
 import { cardText, keyboard, kyivDate, type LeadRow } from './card';
+import { balanceKop } from './cashback';
 
 export type NotifyRow = LeadRow & {
   chat_id: string | null;
@@ -52,7 +53,8 @@ function fail(leadId: number, what: string): void {
  *
  * Що саме відбувається, по порядку: рахуємо попередження → редагуємо
  * наявне повідомлення → якщо не вдалося, надсилаємо нове й запамʼятовуємо
- * його номер.
+ * його номер. Баланс кешбеку рахується тут же, у момент малювання: він
+ * належить людині за номером, тож міняється й без участі цієї заявки.
  */
 export async function drawCard(
   db: D1Database,
@@ -80,7 +82,21 @@ export async function drawCard(
     if (note.trim()) notes.push(note);
   }
 
-  const text = cardText(row, notes);
+  /* Баланс — довідка в картці, а не частина зміни стану. Збій читання
+     (немає таблиці, база не відповіла) не повинен лишити картку
+     неперемальованою: краще картка без рядка кешбеку, ніж стара картка
+     з кнопками, що вже не відповідають стану. Але й не мовчимо. Лише
+     назва помилки: у тексті може бути що завгодно. */
+  let cashback = 0;
+  try {
+    cashback = await balanceKop(db, row.phone);
+  } catch (err) {
+    console.error(
+      `drawCard: баланс кешбеку для заявки #${row.id} не прочитано — ${err instanceof Error ? err.name : 'unknown'}`
+    );
+  }
+
+  const text = cardText(row, notes, cashback);
   const markup = keyboard(row);
 
   /* Один шлях на дві біди: редагування не вдалося або редагувати нічого

@@ -12,6 +12,7 @@
  */
 
 import { cardText, clean, keyboard, kyivDate, type LeadRow, type Status } from '../../shared/card';
+import { balanceKop } from '../../shared/cashback';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -299,6 +300,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
   }
 
+  // Баланс кешбеку за номером — майстрові перед розмовою. Без бази або
+  // при збої читання нуль, тобто картка без рядка: заявка все одно піде.
+  let cashback = 0;
+  if (env.DB) {
+    try {
+      cashback = await balanceKop(env.DB, phone);
+    } catch {
+      // Довідковий рядок не вартий втраченої заявки
+    }
+  }
+
   // ── 8. Картка ───────────────────────────────────────────
   try {
     const res = await fetch(`${api}/sendMessage`, {
@@ -306,7 +318,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: env.TELEGRAM_CHAT_ID,
-        text: cardText(lead, notes),
+        text: cardText(lead, notes, cashback),
         // Кнопки має сенс малювати лише тоді, коли є що міняти:
         // без рядка в базі натискання нікуди не запишеться
         ...(lead.id > 0 ? { reply_markup: keyboard(lead) } : {}),
