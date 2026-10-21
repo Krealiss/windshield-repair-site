@@ -1,26 +1,6 @@
 import { kyivShort } from '../../shared/card';
 
-/** Копійки в базі → «1 200 ₴» для людини. Єдине місце перетворення */
-export function money(kop: number | null | undefined): string {
-  if (kop === null || kop === undefined) return '';
-  /* Копійки не округлюємо: оператор ввів 1200,50 і має побачити 1200,50.
-     Цілі гривні без «,00», щоб звичайна сума не пестрила нулями. */
-  const uah = Math.trunc(kop / 100);
-  const k = Math.abs(kop % 100);
-  const whole = uah.toLocaleString('uk-UA');
-  return k ? `${whole},${String(k).padStart(2, '0')} ₴` : `${whole} ₴`;
-}
-
-/** Копійки з поля форми: «1200» або «1200,50» → 120000 */
-export function toKop(input: string): number | null {
-  const cleaned = input.replace(/\s/g, '').replace(',', '.');
-  if (!cleaned) return null;
-  const value = Number(cleaned);
-  if (!Number.isFinite(value) || value < 0) return null;
-  const kop = Math.round(value * 100);
-  // Поза безпечними цілими сума перестала б бути точною копійкою
-  return Number.isSafeInteger(kop) ? kop : null;
-}
+export { money, toKop } from '../../shared/money';
 
 export const dateTime = (iso: string | null | undefined) => (iso ? kyivShort(iso) : '');
 
