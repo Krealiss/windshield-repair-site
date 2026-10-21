@@ -1,6 +1,7 @@
 import { html } from 'hono/html';
 import { layout, type Viewer } from './layout';
 import type { LeadFull } from '../db';
+import type { CashbackRow } from '../../../shared/cashback';
 import { dateTime, money, statusLabel } from '../format';
 
 /** Причина — для відмови, нотатка про роботу — лише для виконаної */
@@ -17,8 +18,19 @@ function workCell(r: LeadFull): string {
  * Звернення показані картками: у таблиці з пʼяти колонок на телефоні
  * нотатка про роботу обрізалася б першою, хоч саме вона й пояснює, що
  * з цією машиною вже робили.
+ *
+ * Кешбек — журнал, найновіші зверху (так його віддає `ledgerByPhone`).
+ * Баланс тут — сума цих самих рядків, а не окремий запит: так цифра
+ * нагорі завжди сходиться з рядками під нею. Порожній журнал — блоку
+ * немає зовсім; журнал, що скинувся в нуль, блок лишає: «0 ₴» і два
+ * рядки (нарахування та його сторно) пояснюють, куди все поділось.
  */
-export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
+export function clientPage(
+  phone: string,
+  rows: LeadFull[],
+  viewer: Viewer,
+  cashback: CashbackRow[]
+) {
   /* Гроші дає лише виконана заявка. «Повернути» не чистить amount і
      work_note, тож повернена чи відмовлена заявка може тримати стару
      суму; рахувати її означало б завищувати дохід від клієнта. Окремо
@@ -28,6 +40,7 @@ export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
   const total = paid.reduce((s, r) => s + (r.amount ?? 0), 0);
   const cars = [...new Set(rows.map((r) => r.car).filter(Boolean))];
   const name = rows[0]?.name ?? '';
+  const balance = cashback.reduce((s, r) => s + r.kop, 0);
 
   return layout(
     phone,
@@ -38,6 +51,7 @@ export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
       <p class="muted">
         Звернень: ${rows.length}${cars.length ? html` · ${cars.join(', ')}` : ''}
         ${paid.length ? html`<br />Разом сплачено: <strong>${money(total)}</strong>` : ''}
+        ${cashback.length ? html`<br />Кешбек: <strong>${money(balance)}</strong>` : ''}
       </p>
 
       <h2>Звернення</h2>
@@ -55,7 +69,20 @@ export function clientPage(phone: string, rows: LeadFull[], viewer: Viewer) {
             ${work ? html`<br />${work}` : ''}
           </div>
         </a>`;
-      })}`,
+      })}
+      ${cashback.length
+        ? html`<h2>Кешбек</h2>
+            ${cashback.map(
+              (r) => html`<a class="card" href="/lead/${r.lead_id}">
+                <div class="card__top">
+                  <strong>${r.kop > 0 ? '+' : ''}${money(r.kop)}</strong>
+                  ${r.kop < 0 ? html`<span class="chip">сторно</span>` : ''}
+                  <span class="num">#${r.lead_id}</span>
+                </div>
+                <div class="card__meta">${dateTime(r.created_at)}</div>
+              </a>`
+            )}`
+        : ''}`,
     viewer
   );
 }

@@ -37,6 +37,7 @@ import { syncCard } from './sync';
 import { clean, type Status } from '../../shared/card';
 import { fromLocalInput, kyivDayBounds, toKop, toPhone } from './format';
 import { crmViewer, findUser } from '../../shared/users';
+import { ledgerByPhone } from '../../shared/cashback';
 
 const app = new Hono<{ Bindings: Env; Variables: { viewer: Viewer } }>();
 
@@ -503,7 +504,8 @@ app.get('/client/:phone', async (c) => {
   const phone = c.req.param('phone');
   const rows = await historyByPhone(c.env.DB, phone);
   if (rows.length === 0) return c.notFound();
-  return c.html(clientPage(phone, rows, c.get('viewer')));
+  const cashback = await ledgerByPhone(c.env.DB, phone);
+  return c.html(clientPage(phone, rows, c.get('viewer'), cashback));
 });
 
 /* Заявка зі слів клієнта, який подзвонив.
