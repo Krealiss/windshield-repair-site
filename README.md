@@ -451,8 +451,9 @@ npm run telegram:webhook -- https://avtoskloua.com/api/tg
 `0006_assignee.sql` (виконавець заявки — колонки `assignee_id` і
 `assignee_name`; наявні рядки переносяться з `actor`),
 `0007_assignee_backfill.sql` (виконавець для рядків «в роботі» й
-«виконано», яким `0006` його не дала) і `0008_cashback.sql` (журнал
-кешбеку — таблиця `cashback`; див. «Кешбек» у розділі «CRM»).
+«виконано», яким `0006` його не дала) `0008_cashback.sql` (журнал
+кешбеку — таблиця `cashback`; див. «Кешбек» у розділі «CRM») і
+`0009_cashback_pct.sql` (ставка, за якою нараховано рядок журналу).
 
 **Перед першим розгортанням треба створити базу й застосувати всі
 міграції.** Інакше кожна заявка приходитиме з рядком
@@ -469,6 +470,7 @@ npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 npx wrangler d1 execute leads --remote --file=migrations/0006_assignee.sql
 npx wrangler d1 execute leads --remote --file=migrations/0007_assignee_backfill.sql
 npx wrangler d1 execute leads --remote --file=migrations/0008_cashback.sql
+npx wrangler d1 execute leads --remote --file=migrations/0009_cashback_pct.sql
 ```
 
 Імʼя бази — `leads` (`avtoskloua` — це імʼя воркера, не бази; воно стоїть
@@ -639,7 +641,7 @@ npm run crm:dev                             # http://localhost:8789
 
 Міграції накочуються так само, як для сайту (див. «Telegram-бот»): CRM
 стає на ті самі локальні таблиці. Перш ніж запускати CRM, переконайтеся,
-що застосовано все до `0008` включно.
+що застосовано все до `0009` включно.
 
 Ще одна деталь того самого роду: `npm run crm:seed-owner` (без
 `--remote`) ходить у локальну базу через `wrangler d1 execute`, тож
@@ -827,12 +829,13 @@ npx wrangler d1 execute leads --remote --file=migrations/0005_source.sql
 npx wrangler d1 execute leads --remote --file=migrations/0006_assignee.sql
 npx wrangler d1 execute leads --remote --file=migrations/0007_assignee_backfill.sql
 npx wrangler d1 execute leads --remote --file=migrations/0008_cashback.sql
+npx wrangler d1 execute leads --remote --file=migrations/0009_cashback_pct.sql
 ```
 
 Чому саме так: CRM читає колонки, яких до `0004` немає
 (`appointment_at`, `closed_at`, `amount`, `work_note` і таблицю
 `users`), з `0006` — ще й `assignee_id` та `assignee_name`, а з `0008` —
-таблицю `cashback`. Розгорнути його на базу без них — отримати помилку
+таблицю `cashback` разом із колонкою `pct`, яку додає `0009`. Розгорнути його на базу без них — отримати помилку
 бази на першому ж відкритті списку. Без `cashback` помилка тихіша: упаде
 картка клієнта, а зміни заявок перестануть нараховувати кешбек (див.
 «Кешбек»). Сайт цих колонок не читає, тож для нього порядок не
@@ -1029,8 +1032,9 @@ Pages Function бота (`functions/api/tg.ts`, проєкт Pages `avtoskloua`)
 
 ```sql
 -- Звірка журналу кешбеку із заявками. Нічого не змінює.
--- Число 10 — це CASHBACK_PCT з shared/cashback.ts; міняти разом.
--- Після зміни відсотка цей запит не запускати — див. застереження нижче.
+-- Ставку бере з першого рядка журналу заявки — тієї, за якою їй
+-- нарахували. Число 10 стосується лише заявок, яким ще не нараховували:
+-- це поточний CASHBACK_PCT з shared/cashback.ts, міняти разом.
 WITH logged AS (
   SELECT lead_id, SUM(kop) AS kop, MIN(phone) AS phone
     FROM cashback
@@ -1047,7 +1051,11 @@ calc AS (
          l.status,
          l.amount,
          CASE WHEN l.status = 'done' AND l.amount IS NOT NULL
-              THEN l.amount * 10 / 100 ELSE 0 END AS owed_kop,
+              THEN l.amount * COALESCE(
+                     (SELECT pct FROM cashback c2
+                       WHERE c2.lead_id = i.lead_id ORDER BY c2.id LIMIT 1), 10
+                   ) / 100
+              ELSE 0 END AS owed_kop,
          COALESCE(g.kop, 0) AS logged_kop
     FROM ids i
     LEFT JOIN leads  l ON l.id = i.lead_id
@@ -1060,19 +1068,22 @@ SELECT lead_id, phone, status, amount, owed_kop, logged_kop,
  ORDER BY lead_id;
 ```
 
-**Не запускайте звірку після зміни відсотка.** Журнал захищає рядки, але
-не баланс: `owedKop` рахує від поточної константи `CASHBACK_PCT`,
-відсотка в рядку журналу не збережено, порогу за датою закриття немає.
-Після зміни, скажімо, з 10 на 15 цей запит покаже кожну колись закриту
-заявку як розбіжність і підштовхне «дописати різницю новим рядком», а
-перша ж звичайна дія над старою закритою заявкою (`/unappoint`, який
-навмисно пропускає фінальні стани; `/close` для уточнення суми; `/undo`
-з повторним закриттям; кнопка бота, що міняє стан) і сама тихо доплатить
-різницю за роботу, виконану за старими правилами. Змінювати відсоток
-можна лише разом із порогом за `closed_at` (спека, «Що в базі на момент
-запуску») або зі збереженим відсотком у рядку журналу; до того — ні
-змінювати, ні звіряти. Число `10` у запиті теж міняти тільки разом із
-константою.
+**Змінити відсоток безпечно.** Ставка, за якою нарахували, лежить у
+самому рядку журналу (колонка `pct`), і `rateForLead` бере її з першого
+рядка заявки. Тому після зміни `CASHBACK_PCT` з 10 на 15 стара закрита
+заявка рахується за десятьма й далі — і при уточненні суми, і після
+повернення, і при повторному закритті. Доплати за роботу, зроблену за
+старими правилами, не буде: нова ставка діє лише на заявки, за які ще не
+нараховували.
+
+Межа проходить по **першому нарахуванню**, тобто по закриттю заявки з
+сумою, а не по тому, коли клієнт звернувся: заявка, що прийшла до зміни,
+а закрита після, рахується за новою ставкою.
+
+Число `10` у запиті звірки — запасне, для заявок, яким ще не
+нараховували; міняти його треба разом із константою, інакше запит
+покаже для таких заявок не ту очікувану суму. На вже нарахованих воно
+ні на що не впливає.
 
 **Яка команда для якої бази.** Для локальної — `--file`: коментарі в
 запиті кириличні, а в `--command` кирилиця псується (див. «Пастка:
@@ -1090,12 +1101,12 @@ npx wrangler d1 execute DB --local --persist-to .wrangler/state -c wrangler.loca
 один рядок:
 
 ```bash
-npx wrangler d1 execute leads --remote --command "WITH logged AS ( SELECT lead_id, SUM(kop) AS kop, MIN(phone) AS phone FROM cashback GROUP BY lead_id ), ids AS ( SELECT id AS lead_id FROM leads UNION SELECT lead_id FROM logged ), calc AS ( SELECT i.lead_id, COALESCE(l.phone, g.phone) AS phone, l.status, l.amount, CASE WHEN l.status = 'done' AND l.amount IS NOT NULL THEN l.amount * 10 / 100 ELSE 0 END AS owed_kop, COALESCE(g.kop, 0) AS logged_kop FROM ids i LEFT JOIN leads l ON l.id = i.lead_id LEFT JOIN logged g ON g.lead_id = i.lead_id ) SELECT lead_id, phone, status, amount, owed_kop, logged_kop, owed_kop - logged_kop AS diff_kop FROM calc WHERE owed_kop <> logged_kop ORDER BY lead_id;"
+npx wrangler d1 execute leads --remote --command "WITH logged AS ( SELECT lead_id, SUM(kop) AS kop, MIN(phone) AS phone FROM cashback GROUP BY lead_id ), ids AS ( SELECT id AS lead_id FROM leads UNION SELECT lead_id FROM logged ), calc AS ( SELECT i.lead_id, COALESCE(l.phone, g.phone) AS phone, l.status, l.amount, CASE WHEN l.status = 'done' AND l.amount IS NOT NULL THEN l.amount * COALESCE( (SELECT pct FROM cashback c2 WHERE c2.lead_id = i.lead_id ORDER BY c2.id LIMIT 1), 10 ) / 100 ELSE 0 END AS owed_kop, COALESCE(g.kop, 0) AS logged_kop FROM ids i LEFT JOIN leads l ON l.id = i.lead_id LEFT JOIN logged g ON g.lead_id = i.lead_id ) SELECT lead_id, phone, status, amount, owed_kop, logged_kop, owed_kop - logged_kop AS diff_kop FROM calc WHERE owed_kop <> logged_kop ORDER BY lead_id;"
 ```
 
 Колонки: `owed_kop` — що заявці належить зараз, `logged_kop` — що записано
 в журналі, `diff_kop` — різниця, яку дописала б синхронізація (усе в
-копійках). Ціле ділення `l.amount * 10 / 100` відкидає залишок, тож
+копійках). Ціле ділення на 100 відкидає залишок, тож
 збігається з округленням вниз у коді (суми невідʼємні). Заявка, якої вже
 нема в `leads`, а рядки в журналі є, теж потрапляє у відповідь, з порожніми
 `status` і `amount`: належить їй нуль.

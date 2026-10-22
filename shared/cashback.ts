@@ -10,21 +10,22 @@
  * немає імпортів із `crm/`.
  */
 
-/** Відсоток від суми закритої заявки. Константа, а не змінна оточення:
-    зміна відсотка — подія раз на рік, і вона мусить лишити слід у git.
+/** Ставка для заявок, за які ще не нараховували. Константа, а не змінна
+    оточення: зміна відсотка — подія раз на рік, і вона мусить лишити
+    слід у git.
 
-    УВАГА: просто змінити число не можна. Журнал захищає свої рядки — їх
-    ніхто не редагує, — але не баланс: `owedKop` рахує від поточної
-    константи, відсотка в рядку журналу не збережено, порогу за датою
-    закриття немає. Тож після зміни, скажімо, з 10 на 15 перша ж звичайна
-    дія над старою закритою заявкою (`/unappoint`, який навмисно пропускає
-    фінальні стани; `/close` для уточнення суми; `/undo` з повторним
-    закриттям; кнопка бота, що міняє стан) тихо доплатить різницю за
-    роботу, виконану за старими правилами, а запит звірки з README покаже
-    кожну колись закриту заявку як розбіжність. Змінювати відсоток можна
-    лише разом із порогом за `closed_at` (див. спеку, «Що в базі на
-    момент запуску») або зі збереженим відсотком у рядку журналу. До того
-    звірку після зміни відсотка не запускати. */
+    Змінити це число безпечно, і це не випадковість. Ставка, за якою
+    нарахували, лежить у самому рядку журналу (колонка `pct`, міграція
+    0009), а `rateForLead` бере її з першого рядка заявки. Тому після
+    зміни 10 на 15 стара закрита заявка рахується за десятьма й далі —
+    і при уточненні суми, і після повернення, і при повторному закритті.
+    Доплати за роботу, зроблену за старими правилами, не буде: рішення
+    замовника — нова ставка діє лише на заявки, за які ще не
+    нараховували.
+
+    Межа проходить по першому нарахуванню, тобто по закриттю заявки з
+    сумою, а не по тому, коли клієнт звернувся. Заявка, що прийшла до
+    зміни, а закрита після, рахується за новою ставкою. */
 export const CASHBACK_PCT = 10;
 
 export type CashbackRow = { id: number; lead_id: number; kop: number; created_at: string };
@@ -38,9 +39,26 @@ export type CashbackRow = { id: number; lead_id: number; kop: number; created_at
  * «Повернути» ніхто не чистить, тому повторне закриття без нової суми
  * дає знову те саме нарахування — це та сама робота за ту саму суму.
  */
-export function owedKop(lead: { status: string; amount: number | null }): number {
+export function owedKop(lead: { status: string; amount: number | null }, pct: number): number {
   if (lead.status !== 'done' || lead.amount === null) return 0;
-  return Math.floor((lead.amount * CASHBACK_PCT) / 100);
+  return Math.floor((lead.amount * pct) / 100);
+}
+
+/**
+ * Ставка цієї заявки: та, за якою їй уже нараховували, інакше поточна.
+ *
+ * Береться з найпершого рядка журналу заявки — саме він зафіксував
+ * ставку в момент першого нарахування. Далі рядків може бути скільки
+ * завгодно (сторно, нове нарахування після повторного закриття), і всі
+ * вони мусять рахуватися за тією самою ставкою, інакше відкат і
+ * повторне закриття дали б різні числа за ту саму роботу.
+ */
+export async function rateForLead(db: D1Database, leadId: number): Promise<number> {
+  const row = await db
+    .prepare('SELECT pct FROM cashback WHERE lead_id = ? ORDER BY id LIMIT 1')
+    .bind(leadId)
+    .first<{ pct: number }>();
+  return row?.pct ?? CASHBACK_PCT;
 }
 
 /**
@@ -67,30 +85,43 @@ export function owedKop(lead: { status: string; amount: number | null }): number
  *
  * Це не друге місце, де рахується сума: у SQL їде не правило, а знімок,
  * з якого різницю порахували. Відсоток живе лише в `owedKop`.
+ *
+ * Другий сторож, `NOT EXISTS … pct <> ?`, тримає одну ставку на заявку.
+ * Ставку читають до запису, і єдиний момент, коли вона може застаріти, —
+ * хвилина розгортання, поки працюють дві версії коду з різними
+ * константами: один виклик порахував би за десятьма, другий за
+ * пʼятнадцятьма, і різниця між ними лягла б у журнал як доплата. З цим
+ * сторожем замість доплати не відбувається нічого, а наступна звичайна
+ * дія над заявкою порахує за ставкою, яка вже в журналі.
  */
 export async function syncCashback(
   db: D1Database,
   lead: { id: number; phone: string; status: string; amount: number | null }
 ): Promise<void> {
-  const owed = owedKop(lead);
+  const pct = await rateForLead(db, lead.id);
+  const owed = owedKop(lead, pct);
   await db
     .prepare(
-      `INSERT INTO cashback (phone, lead_id, kop, created_at)
-       SELECT ?, ?, ? - s.total, ?
+      `INSERT INTO cashback (phone, lead_id, kop, created_at, pct)
+       SELECT ?, ?, ? - s.total, ?, ?
          FROM (SELECT COALESCE(SUM(kop), 0) AS total FROM cashback WHERE lead_id = ?) AS s
         WHERE ? - s.total <> 0
-          AND EXISTS (SELECT 1 FROM leads WHERE id = ? AND status IS ? AND amount IS ?)`
+          AND EXISTS (SELECT 1 FROM leads WHERE id = ? AND status IS ? AND amount IS ?)
+          AND NOT EXISTS (SELECT 1 FROM cashback WHERE lead_id = ? AND pct <> ?)`
     )
     .bind(
       lead.phone,
       lead.id,
       owed,
       new Date().toISOString(),
+      pct,
       lead.id,
       owed,
       lead.id,
       lead.status,
-      lead.amount
+      lead.amount,
+      lead.id,
+      pct
     )
     .run();
 }
