@@ -11,7 +11,19 @@
  */
 
 /** Відсоток від суми закритої заявки. Константа, а не змінна оточення:
-    зміна відсотка — подія раз на рік, і вона мусить лишити слід у git. */
+    зміна відсотка — подія раз на рік, і вона мусить лишити слід у git.
+
+    УВАГА: просто змінити число не можна. Журнал захищає свої рядки — їх
+    ніхто не редагує, — але не баланс: `owedKop` рахує від поточної
+    константи, відсотка в рядку журналу не збережено, порогу за датою
+    закриття немає. Тож після зміни, скажімо, з 10 на 15 перша ж звичайна
+    дія над старою закритою заявкою (призначення, дописана причина, кнопка
+    бота) тихо доплатить різницю за роботу, виконану за старими правилами,
+    а запит звірки з README покаже кожну колись закриту заявку як
+    розбіжність. Змінювати відсоток можна лише разом із порогом за
+    `closed_at` (див. спеку, «Що в базі на момент запуску») або зі
+    збереженим відсотком у рядку журналу. До того звірку після зміни
+    відсотка не запускати. */
 export const CASHBACK_PCT = 10;
 
 export type CashbackRow = { id: number; lead_id: number; kop: number; created_at: string };
@@ -25,7 +37,7 @@ export type CashbackRow = { id: number; lead_id: number; kop: number; created_at
  * «Повернути» ніхто не чистить, тому повторне закриття без нової суми
  * дає знову те саме нарахування — це та сама робота за ту саму суму.
  */
-export function earnedKop(lead: { status: string; amount: number | null }): number {
+export function owedKop(lead: { status: string; amount: number | null }): number {
   if (lead.status !== 'done' || lead.amount === null) return 0;
   return Math.floor((lead.amount * CASHBACK_PCT) / 100);
 }
@@ -41,20 +53,44 @@ export function earnedKop(lead: { status: string; amount: number | null }): numb
  * спершу читав суму журналу, а потім писав, два одночасні виклики
  * побачили б однаковий стан і дописали б по повному нарахуванню кожен.
  * В одному запиті другий бачить рядок першого.
+ *
+ * Сторож `EXISTS` наприкінці закриває другу гонку: «скільки належить»
+ * приходить у запит уже порахованим зі знімка заявки, а знімок міг
+ * застаріти. Приклад: CRM закрила заявку на 1200 і прочитала знімок
+ * `done/120000`; у цей проміжок бот отримав «Повернути» й синхронізував
+ * нуль; CRM доходить до свого запису зі старим знімком, бачить у журналі
+ * 0, належить 12000 — і дописала б +120 ₴ заявці, яка в роботі. Сторож
+ * пускає запис, лише поки заявка в базі досі така, як у знімку; інакше
+ * рядка немає, а журнал вирівняє той, хто заявку змінив пізніше (кожна
+ * зміна синхронізує по собі). `IS`, а не `=`, бо `amount` буває NULL.
+ *
+ * Це не друге місце, де рахується сума: у SQL їде не правило, а знімок,
+ * з якого різницю порахували. Відсоток живе лише в `owedKop`.
  */
 export async function syncCashback(
   db: D1Database,
   lead: { id: number; phone: string; status: string; amount: number | null }
 ): Promise<void> {
-  const owed = earnedKop(lead);
+  const owed = owedKop(lead);
   await db
     .prepare(
       `INSERT INTO cashback (phone, lead_id, kop, created_at)
        SELECT ?, ?, ? - s.total, ?
          FROM (SELECT COALESCE(SUM(kop), 0) AS total FROM cashback WHERE lead_id = ?) AS s
-        WHERE ? - s.total <> 0`
+        WHERE ? - s.total <> 0
+          AND EXISTS (SELECT 1 FROM leads WHERE id = ? AND status IS ? AND amount IS ?)`
     )
-    .bind(lead.phone, lead.id, owed, new Date().toISOString(), lead.id, owed)
+    .bind(
+      lead.phone,
+      lead.id,
+      owed,
+      new Date().toISOString(),
+      lead.id,
+      owed,
+      lead.id,
+      lead.status,
+      lead.amount
+    )
     .run();
 }
 
