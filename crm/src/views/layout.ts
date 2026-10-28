@@ -178,8 +178,21 @@ const STYLE = `
   }
   .empty { color: var(--muted); text-align: center; padding: 2rem .5rem; }
 
-  footer { padding: 0 .75rem 2rem; text-align: center; }
+  footer { padding: 0 .75rem 2rem; text-align: center; color: var(--muted); font-size: .9rem; }
   footer a { color: var(--muted); font-size: .9rem; }
+  /* Кнопка, що виглядає посиланням: вихід — це форма (POST), а не
+     посилання, інакше його відкривав би будь-який перехід за адресою */
+  .btn-link {
+    border: 0;
+    background: none;
+    padding: .5rem;
+    min-height: 44px;
+    color: var(--muted);
+    font: inherit;
+    font-size: .9rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
 
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 `;
@@ -189,10 +202,10 @@ const STYLE = `
    приводити кожен виклик */
 type Body = HtmlEscapedString | Promise<HtmlEscapedString>;
 
-/* Довідка — у підвалі, а не в шапці. Пʼять пунктів у шапці вже займають
-   усю ширину на 375 пікселях (виміряно), шостий переніс би рядок і
-   зробив би шапку вдвічі вищою заради посилання, яке відкривають раз
-   на місяць. */
+/* Довідка й «Вийти» — у підвалі, а не в шапці. Чотири пункти меню плюс
+   кнопка виходу на 375 пікселях не вміщалися: «Люди» обрізалося за
+   кнопкою. Вихід — дія раз на місяць, і в підвалі їй правильне місце;
+   меню від цього перестало тіснитися. */
 export function layout(title: string, body: Body, viewer?: Viewer, current?: string) {
   return html`<!doctype html>
 <html lang="uk">
@@ -212,15 +225,18 @@ export function layout(title: string, body: Body, viewer?: Viewer, current?: str
             <a href="/new" ${current === 'new' ? raw('aria-current="page"') : ''}>+ Нова</a>
             <a href="/users" ${current === 'users' ? raw('aria-current="page"') : ''}>Люди</a>
           </nav>
-          <form method="post" action="/logout">
-            <button type="submit" class="btn btn--quiet" title="${viewer.name}">Вийти</button>
-          </form>
         </header>`
       : ''}
     <main>${body}</main>
-    ${current === 'help'
-      ? ''
-      : html`<footer><a href="/dovidka">Довідка</a></footer>`}
+    <footer>
+      ${current === 'help' ? '' : html`<a href="/dovidka">Довідка</a>`}
+      ${viewer
+        ? html`${current === 'help' ? '' : ' · '}
+            <form method="post" action="/logout" style="display: inline">
+              <button type="submit" class="btn-link" title="${viewer.name}">Вийти</button>
+            </form>`
+        : ''}
+    </footer>
   </body>
 </html>`;
 }

@@ -19,6 +19,57 @@ import { REASONS } from '../../../shared/card';
  * уточнення: сума для заявки, закритої кнопкою в боті, і причина для
  * відмови без причини. Вони пишуть поля, а не переходять у стан.
  */
+/**
+ * Форма закриття роботи. Винесена, щоб той самий шаблон не дублювався
+ * у двох гілках — розгорнутій і згорнутій.
+ */
+function closeForm(lead: LeadFull) {
+  return html`<form method="post" action="/lead/${lead.id}/close">
+    <label for="amount">Сума, ₴</label>
+    <input id="amount" name="amount" inputmode="decimal" required />
+    <label for="work_note">Що зробили</label>
+    <textarea id="work_note" name="work_note" rows="2">${lead.status === 'done' ? (lead.work_note ?? '') : ''}</textarea>
+    <button type="submit" class="btn btn--primary btn--wide" style="margin-top:.6rem">
+      ${lead.status === 'done' ? 'Зберегти' : 'Виконано'}
+    </button>
+  </form>`;
+}
+
+/** Закриття: розгорнуте в роботі й у виконаній, згорнуте в новій */
+function closeBlock(lead: LeadFull) {
+  if (lead.status === 'new') {
+    return html`<details>
+      <summary class="muted" style="padding: .5rem 0; cursor: pointer">Закрити роботу</summary>
+      ${closeForm(lead)}
+    </details>`;
+  }
+  return html`<h2>${lead.status === 'done' ? 'Уточнити суму' : 'Закрити роботу'}</h2>
+    ${closeForm(lead)}`;
+}
+
+/**
+ * Форма відмови.
+ *
+ * Перший пункт списку — порожній і типово обраний. Без нього `<select>`
+ * надсилав би REASONS[0] («Тріщина завелика — тільки заміна»), і один
+ * клік «Відмовити» записував би технічний діагноз як факт. Бот у цій
+ * ситуації лишає NULL, і звіт про втрачених клієнтів бачить різницю між
+ * «причини немає» і вигаданою причиною.
+ */
+function declineForm(lead: LeadFull) {
+  return html`<form method="post" action="/lead/${lead.id}/decline">
+    <select name="reason" aria-label="Причина">
+      <option value="">— без причини —</option>
+      ${REASONS.map((r) => html`<option value="${r}">${r}</option>`)}
+    </select>
+    <label for="other">Або своя причина</label>
+    <input id="other" name="other" placeholder="Напишіть своїми словами" />
+    <button type="submit" class="btn btn--danger btn--wide" style="margin-top:.6rem">
+      ${lead.status === 'declined' ? 'Зберегти причину' : 'Відмовити'}
+    </button>
+  </form>`;
+}
+
 export function leadPage(
   lead: LeadFull,
   history: LeadFull[],
@@ -116,39 +167,26 @@ export function leadPage(
                 <button type="submit" class="btn btn--wide" style="margin-top:.5rem">Записати</button>
               </form>`}
 
+      <!-- Розгорнуте те, що буде наступною дією, згорнуте — решта.
+           Заявку в роботі закривають, виконану уточнюють — там форма
+           суми відкрита. На новій закривати нічого: її ще ніхто не
+           брав, і відкрита форма суми лише відсувала б запис на час.
+
+           Відмова згорнута завжди. Це дія, яку найдорожче натиснути
+           випадково, і вона не має лежати на дорозі до того, що
+           роблять щодня. -->
       ${lead.status === 'declined'
         ? ''
-        : html`<h2>${lead.status === 'done' ? 'Уточнити суму' : 'Закрити роботу'}</h2>
-            <form method="post" action="/lead/${lead.id}/close">
-              <label for="amount">Сума, ₴</label>
-              <input id="amount" name="amount" inputmode="decimal" required />
-              <label for="work_note">Що зробили</label>
-              <textarea id="work_note" name="work_note" rows="2">${lead.status === 'done' ? (lead.work_note ?? '') : ''}</textarea>
-              <button type="submit" class="btn btn--primary btn--wide" style="margin-top:.6rem">
-                ${lead.status === 'done' ? 'Зберегти' : 'Виконано'}
-              </button>
-            </form>`}
+        : closeBlock(lead)}
 
       ${lead.status === 'done'
         ? ''
-        : html`<h2>${lead.status === 'declined' ? 'Причина відмови' : 'Відмова'}</h2>
-            <form method="post" action="/lead/${lead.id}/decline">
-              <!-- Перший пункт — порожній і типово обраний. Без нього
-                   <select> надсилав би REASONS[0] («Тріщина завелика —
-                   тільки заміна»), і один клік «Відмовити» записував би
-                   технічний діагноз як факт. Бот у цій ситуації лишає
-                   NULL, і звіт про втрачених клієнтів бачить різницю між
-                   «причини немає» і вигаданою причиною. -->
-              <select name="reason" aria-label="Причина">
-                <option value="">— без причини —</option>
-                ${REASONS.map((r) => html`<option value="${r}">${r}</option>`)}
-              </select>
-              <label for="other">Або своя причина</label>
-              <input id="other" name="other" placeholder="Напишіть своїми словами" />
-              <button type="submit" class="btn btn--danger btn--wide" style="margin-top:.6rem">
-                ${lead.status === 'declined' ? 'Зберегти причину' : 'Відмовити'}
-              </button>
-            </form>`}
+        : lead.status === 'declined'
+          ? html`<h2>Причина відмови</h2>${declineForm(lead)}`
+          : html`<details>
+              <summary class="muted" style="padding: .5rem 0; cursor: pointer">Відмова</summary>
+              ${declineForm(lead)}
+            </details>`}
 
       ${isFinal
         ? html`<form method="post" action="/lead/${lead.id}/undo">

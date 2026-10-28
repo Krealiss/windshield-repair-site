@@ -59,12 +59,27 @@ export function leadsPage(rows: LeadFull[], filter: ListFilter, viewer: Viewer) 
         : rows.map((r) => {
             /* Рядки збираємо списком, а <br /> ставимо лише між ними:
                інакше заявка без авто й давності починалася б порожнім
-               рядком. */
-            const about = [r.car, r.age].filter(Boolean).join(' · ');
+               рядком.
+
+               Перший рядок — коли заявка прийшла. Без нього список не
+               відрізняв нову заявку трьохденної давності від щойно
+               поданої, а єдине число поруч («До 2 днів») — це вік скола,
+               і читалося воно рівно навпаки. Тому вік скола підписаний.
+
+               «Без майстра» кажемо лише про заявку в роботі: у «Новій»
+               його не буває за визначенням, і рядок був би шумом у
+               кожній другій картці. */
+            const about = [r.car, r.age && `скол: ${r.age}`].filter(Boolean).join(' · ');
+            const master = r.assignee_name
+              ? html`Майстер: ${r.assignee_name}`
+              : r.status === 'in_work'
+                ? html`Майстер: <strong>не призначено</strong>`
+                : null;
             const meta = [
+              html`Прийшла: ${dateTime(r.created_at)}`,
               about ? html`${about}` : null,
               r.appointment_at ? html`Запис: ${dateTime(r.appointment_at)}` : null,
-              r.assignee_name ? html`Майстер: ${r.assignee_name}` : null,
+              master,
             ].filter(Boolean);
 
             return html`<div class="card">
