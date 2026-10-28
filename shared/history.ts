@@ -10,7 +10,6 @@
  * двічі відмова через ціну» каже все. Подробиці — у CRM, тому рядок
  * короткий: дата, стан, сума.
  */
-import { kyivDate } from './card';
 import { money } from './money';
 
 export type HistoryRow = {
@@ -22,6 +21,20 @@ export type HistoryRow = {
 
 /** Скільки звернень показуємо повністю. Решта — рядком «ще N раніше». */
 const SHOWN = 10;
+
+/* Дата з роком, на відміну від попередження в картці. Там дата одна й
+   свіжа, а тут до десяти рядків за кілька років: два «10.06» поспіль
+   без року не розрізнити. */
+function kyivDay(iso: string): string {
+  const parts = new Intl.DateTimeFormat('uk-UA', {
+    timeZone: 'Europe/Kyiv',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).formatToParts(new Date(iso));
+  const v = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${v('day')}.${v('month')}.${v('year')}`;
+}
 
 const MARK: Record<string, string | undefined> = {
   new: '🆕',
@@ -49,15 +62,20 @@ export function historyText(rows: HistoryRow[], crmUrl?: string, phone?: string)
   for (const r of rows.slice(0, SHOWN)) {
     const mark = MARK[r.status] ?? '❔';
     const sum = r.status === 'done' && r.amount !== null ? ` · ${money(r.amount)}` : '';
-    lines.push(`${kyivDate(r.created_at)} ${mark} #${r.id}${sum}`);
+    lines.push(`${kyivDay(r.created_at)} ${mark} #${r.id}${sum}`);
   }
 
   if (rows.length > SHOWN) lines.push(`… ще ${rows.length - SHOWN} раніше`);
 
+  /* Підсумок — за всі звернення, і це сказано вголос: видно десять
+     рядків, а рахується більше, і без підпису число не звести з тим, що
+     на екрані. Поточна заявка в підсумок не входить — вона над кнопкою,
+     тому в CRM сума за цим номером буде більшою. */
   const paid = rows.filter((r) => r.status === 'done' && r.amount !== null);
   if (paid.length) {
     const total = paid.reduce((s, r) => s + (r.amount ?? 0), 0);
-    lines.push('', `Разом сплачено: ${money(total)}`);
+    const scope = rows.length > SHOWN ? ` за всі ${rows.length}` : '';
+    lines.push('', `Разом сплачено${scope}: ${money(total)}`);
   }
 
   /* Посилання на картку клієнта — лише коли адресу CRM задано змінною

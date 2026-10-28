@@ -325,26 +325,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
        Поточну заявку в список не беремо: вона над кнопкою. */
     if (action === 'hist') {
+      /* `created_at < ?`, а не «будь-яка інша»: «попереднє» — те, що
+         раніше за цю заявку. Умова та сама, що й у попередження в
+         картці (shared/notify.ts), і без неї на картці #7 у «попередніх»
+         опинилася б заявка #9, якої на той момент ще не було. */
       const res = await db
         .prepare(
           `SELECT id, created_at, status, amount FROM leads
-            WHERE phone = ? AND id <> ? ORDER BY created_at DESC, id DESC`
+            WHERE phone = ? AND created_at < ? ORDER BY created_at DESC, id DESC`
         )
-        .bind(row.phone, id)
+        .bind(row.phone, row.created_at)
         .all<HistoryRow>();
 
       const text = historyText(res.results ?? [], env.CRM_URL, row.phone);
       const chatId = cq.message?.chat?.id ?? env.TELEGRAM_CHAT_ID;
-      const replyTo = cq.message?.message_id;
 
+      /* `allow_sending_without_reply` замість другої спроби: якщо картку
+         встигли видалити, Telegram надішле список без привʼязки сам.
+         Список потрібніший за звʼязок із карткою. */
       const sent = await call(api, 'sendMessage', {
         chat_id: chatId,
         text,
-        ...(replyTo ? { reply_to_message_id: replyTo } : {}),
+        ...(cq.message?.message_id
+          ? { reply_to_message_id: cq.message.message_id, allow_sending_without_reply: true }
+          : {}),
       });
 
-      if (!sent.ok && replyTo) {
-        await call(api, 'sendMessage', { chat_id: chatId, text });
+      if (!sent.ok) {
+        // Без тіла відповіді: у ньому адреса з токеном
+        console.error(`tg: історію звернень не надіслано (заявка #${id}): ${sent.status}`);
+        await close('Не вдалося надіслати історію');
+        return okEmpty();
       }
 
       await close('');
