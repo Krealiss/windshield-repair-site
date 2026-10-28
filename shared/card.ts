@@ -190,21 +190,37 @@ export function cardText(lead: LeadRow, notes: string[] = [], cashbackKop = 0): 
  * без неї одне помилкове натискання назавжди заморожує заявку.
  *
  * callback_data обмежена 64 байтами, тож дія і номер, без тексту.
+ *
+ * `hasHistory` додає окремим рядком кнопку історії — лише тим карткам,
+ * у яких і так стоїть попередження «цей номер уже звертався». Умова та
+ * сама, що в попередження, навмисно: кнопка без попередження виглядала б
+ * як обіцянка показати те, чого немає, а попередження без кнопки лишало
+ * б питання «і що з того» без відповіді. Окремим рядком, бо це читання,
+ * а не дія над заявкою: сусідство з «Відмовою» коштувало б помилкових
+ * натискань.
  */
-export function keyboard(lead: LeadRow) {
+export function keyboard(lead: LeadRow, hasHistory = false) {
   const btn = (text: string, action: string) => ({
     text,
     callback_data: `${action}:${lead.id}`,
   });
 
   const undo = btn('↩️ Повернути', 'undo');
+  const history = hasHistory ? [[btn('📋 Історія звернень', 'hist')]] : [];
 
   if (lead.status === 'new') {
-    return { inline_keyboard: [[btn('🔧 В роботу', 'work'), btn('✖️ Відмова', 'decline')]] };
+    return {
+      inline_keyboard: [
+        [btn('🔧 В роботу', 'work'), btn('✖️ Відмова', 'decline')],
+        ...history,
+      ],
+    };
   }
 
   if (lead.status === 'in_work') {
-    return { inline_keyboard: [[btn('✅ Виконано', 'done'), btn('✖️ Відмова', 'decline')]] };
+    return {
+      inline_keyboard: [[btn('✅ Виконано', 'done'), btn('✖️ Відмова', 'decline')], ...history],
+    };
   }
 
   /* Свіжа відмова питає причину. Питаємо після зміни стану, а не до:
@@ -218,9 +234,10 @@ export function keyboard(lead: LeadRow) {
       inline_keyboard: [
         ...REASONS.map((text, i) => [btn(text, `r${i}`)]),
         [btn('✍️ Інша причина', 'rx'), undo],
+        ...history,
       ],
     };
   }
 
-  return { inline_keyboard: [[undo]] };
+  return { inline_keyboard: [[undo], ...history] };
 }

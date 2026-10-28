@@ -321,7 +321,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         text: cardText(lead, notes, cashback),
         // Кнопки має сенс малювати лише тоді, коли є що міняти:
         // без рядка в базі натискання нікуди не запишеться
-        ...(lead.id > 0 ? { reply_markup: keyboard(lead) } : {}),
+        ...(lead.id > 0 ? { reply_markup: keyboard(lead, Boolean(previous)) } : {}),
       }),
     });
 

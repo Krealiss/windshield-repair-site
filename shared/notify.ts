@@ -97,7 +97,8 @@ export async function drawCard(
   }
 
   const text = cardText(row, notes, cashback);
-  const markup = keyboard(row);
+  // Кнопка історії — за тією самою умовою, що й попередження вище
+  const markup = keyboard(row, Boolean(before));
 
   /* Один шлях на дві біди: редагування не вдалося або редагувати нічого
      (зворотний запис message_id колись не пройшов). В обох випадках

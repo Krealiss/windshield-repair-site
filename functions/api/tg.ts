@@ -36,12 +36,17 @@
  */
 import { syncCashback } from '../../shared/cashback';
 import { clean, REASONS, type Status } from '../../shared/card';
+import { historyText, type HistoryRow } from '../../shared/history';
 import { call, drawCard, telegramApi, type NotifyRow } from '../../shared/notify';
 import { findUser, userForAction } from '../../shared/users';
 
 interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET: string;
+  /* Публічна адреса CRM — для посилання на картку клієнта в історії
+     звернень. У боті немає запиту, з якого можна дізнатися свій домен.
+     Не секрет; якщо не задано, посилання просто не показується. */
+  CRM_URL?: string;
   /* Дві ролі. Перша — запасний адресат: якщо в заявці не збереглося
      chat_id, картку-замінник треба комусь надіслати. Друга — межа, у
      якому чаті натискач кнопки стає майстром.
@@ -203,7 +208,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       id: string;
       data?: string;
       from?: { id?: number; first_name?: string; username?: string };
-      message?: { chat?: { id?: number } };
+      message?: { message_id?: number; chat?: { id?: number } };
     };
     message?: {
       message_id?: number;
@@ -306,6 +311,43 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (!row) {
       await close('Заявку не знайдено');
+      return okEmpty();
+    }
+
+    /* Історія звернень. Нічого не міняє — читання, тож ні стану, ні
+       кешбеку не чіпає й картку не перемальовує.
+
+       Відповіддю на картку (`reply_to_message_id`), а не окремим
+       повідомленням: у групі карток багато, і список без привʼязки
+       читався б як чиясь чужа історія. Якщо картку встигли видалити,
+       Telegram відмовить саме через `reply_to_message_id` — тоді
+       надсилаємо без неї, бо список потрібніший за звʼязок.
+
+       Поточну заявку в список не беремо: вона над кнопкою. */
+    if (action === 'hist') {
+      const res = await db
+        .prepare(
+          `SELECT id, created_at, status, amount FROM leads
+            WHERE phone = ? AND id <> ? ORDER BY created_at DESC, id DESC`
+        )
+        .bind(row.phone, id)
+        .all<HistoryRow>();
+
+      const text = historyText(res.results ?? [], env.CRM_URL, row.phone);
+      const chatId = cq.message?.chat?.id ?? env.TELEGRAM_CHAT_ID;
+      const replyTo = cq.message?.message_id;
+
+      const sent = await call(api, 'sendMessage', {
+        chat_id: chatId,
+        text,
+        ...(replyTo ? { reply_to_message_id: replyTo } : {}),
+      });
+
+      if (!sent.ok && replyTo) {
+        await call(api, 'sendMessage', { chat_id: chatId, text });
+      }
+
+      await close('');
       return okEmpty();
     }
 
